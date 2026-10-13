@@ -51,7 +51,7 @@ fael board --json --open | jq --arg r <repo root> '.projects[] | select(.root ==
 
 ```bash
 fael find --key lead:<project>        # the last hand back: next set, open Qs
-fael find --key lead:miss             # past misses, by class
+fael find --key 'lead:miss:*'         # past misses, by class (--key takes a glob)
 fael board --json --open | jq --arg r <repo root> '.projects[] | select(.root == $r) | del(.ledger)'
 fael board --json | jq '.running | length'
 ```
@@ -167,8 +167,8 @@ You learn a worker ended from your own process notification — never poll.
 - **Finished** → `git diff --name-only plan/<project>/s<n>...<lane-branch>` against its scope.
   A path outside it, not `project.shared`: read it; inside another open chunk's scope it is a
   Q before it lands. Then, in a worktree whose worker exited, land it on the set branch in
-  plan order: `git rebase plan/<project>/s<n> <lane-branch>`, fast-forward the set branch,
-  and run the repo's gates (AGENTS.md), each by its own exit code (127 = no tool, not a pass).
+  plan order: `git rebase plan/<project>/s<n> <lane-branch>`, fast-forward the set branch, run the
+  gates (AGENTS.md) each by its exit code (127 = no tool), then `fael run end <R>`: the worktree is free for the next set, G7.4 still dones `--run R`.
   - conflict in a `project.shared` file → resolve (lists keep both sides; goldens re-bless);
   - conflict in a file a lane owns, or gates fail on top of another lane → out, its note says
     why, and a `lead:miss` issue (G8).
@@ -180,8 +180,8 @@ worktree whose worker exited, on the set branch:
 
 ```bash
 sid=$(uuidgen | tr A-Z a-z)
-claude -p --session-id $sid --model opus --permission-mode auto <same --disallowedTools as G4> \
-  "/fael-review high --fix plan/<project>/stack...plan/<project>/s<n>"
+echo "/fael-review high --fix plan/<project>/stack...plan/<project>/s<n>" |   # stdin, as G4.5
+  claude -p --session-id $sid --model opus --permission-mode auto <same --disallowedTools as G4>
 ```
 
 It fixes the CONFIRMED blocker and major findings and records the rest to fael. Then you: a
