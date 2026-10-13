@@ -246,6 +246,9 @@ What this wave taught goes where the next agent meets it, written by you, never 
   the repro; a cause you have not proven is "likely", with the run that would prove it;
 - how the repo runs (a server mode, a gate's order) → `fael add note … --files <paths>`.
 
+A row or a hand-off that cites another repo's row names the repo: `board:01M4TKYW`, never a
+bare id — `fael find` resolves ids in its own repo's ledger only.
+
 Only a fix that needs a PR outside this wave (root config, docs, another repo) goes to the
 owner, as a Q with options.
 
@@ -274,3 +277,6 @@ fael add note "<wave n: PR, lanes in/out> · next: <labels, why> · left: <undon
   --title "lead <plan>: wave <n> shipped, next <labels>" --key lead:<plan> --files plan:<plan> \
   [--supersedes <last lead:<plan> id>]
 ```
+
+`lead:<plan>` is the lead's key alone: a row on it replaces the hand back. A row about the plan
+from outside a wave (a review, a retro fix) takes another key.
