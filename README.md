@@ -19,7 +19,7 @@ every set and merges every PR on GitHub; local merges are the lead's.
 |---|---|
 | `skills/fael-lead` | `/fael-lead [project]` — lead one project's sets with `claude -p` workers |
 | `skills/fael-content` | `/fael-content` — plan a month of posts as chunks |
-| `scripts/wave-sandbox.sh` | rehearse a wave on a throwaway toy plan before a real one |
+| `scripts/wave-sandbox.sh` | rehearse a lead on a throwaway toy project before a real one |
 
 ## Requirements
 
@@ -35,7 +35,7 @@ ln -s ~/fael-crew/skills/fael-lead ~/.claude/skills/fael-lead
 ln -s ~/fael-crew/skills/fael-content ~/.claude/skills/fael-content
 ```
 
-Rehearse once, then lead a real plan:
+Rehearse once, then lead a real project:
 
 ```sh
 ~/fael-crew/scripts/wave-sandbox.sh

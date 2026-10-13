@@ -31,9 +31,9 @@ owner did, and it judges nothing.
 
 ## What's here
 
-- `skills/fael-lead/SKILL.md`: `/fael-lead <plan>`
+- `skills/fael-lead/SKILL.md`: `/fael-lead [project]`
 - `skills/fael-content/SKILL.md`: `/fael-content`
-- `scripts/wave-sandbox.sh`: rehearse a wave on a toy plan
+- `scripts/wave-sandbox.sh`: rehearse a lead (sets, review, stack, push pr) on a toy project
 
 Skills are markdown and there is no binary. A binary comes only when skill-held wave state
 (PIDs, free worktrees) proves unreliable, for example a lead session crashing and leaving
@@ -62,7 +62,7 @@ skill change must cite (two sets of one class).
 
 ## Before changing a skill
 
-Run `scripts/wave-sandbox.sh` and lead the toy plan through it with the changed skill
+Run `scripts/wave-sandbox.sh` and lead the toy project through it with the changed skill
 before you use it on a real plan.
 
 ## Git
