@@ -60,16 +60,19 @@ of its chunks — two that share a path collided, whatever their scopes said.
 Size: **2**, until 3 sets in a row closed with no `lead:miss`; then up to **5**. A miss drops
 it back to 2.
 
-Take ready chunks in plan order. A chunk is **out** when a check fails and no Q fixes it:
+Take ready chunks in plan order. A chunk is **out** when a check fails and no fix holds:
 
-| Check | Fails when | Fix (a Q to the owner) |
+| Check | Fails when | Fix |
 |---|---|---|
-| Known | `scope` empty | propose paths from the code, never the title; out this set |
-| Disjoint | its scope, or a path its brief edits, meets another pick, a live run or an open PR; a changed pub item counts every caller (grep, tests included) | widen scope + `after`; out until okayed |
-| Order | an `after` between two picks | small → `pair` (one worker, one run); big → the later waits |
+| Known | `scope` empty | out this set; paths from the code (never the title) in its next row |
+| Disjoint | its scope, or a path its brief edits, meets another pick, a live run or an open PR; a changed pub item counts every caller (grep, tests included) | widen scope + `after` in the row, or out |
+| Order | an `after` between two picks | small → `pair` in the row (one worker, one run); big → the later waits |
 | Interface | two picks meet at a type, schema, table, CLI or JSON | a contract (below) before either starts; no contract, no parallel |
-| Room | a file in scope near the repo's line cap that the brief grows | widen scope to its folder |
-| Question | one brief leaves a choice to the owner that another pick meets too | one Q for both, before either starts |
+| Room | a file in scope near the repo's line cap that the brief grows | widen scope to its folder in the row |
+| Question | one brief leaves a choice to the owner that another pick meets too | one Q for both |
+
+A mechanical fix rides in its row (`scope → x/ (near cap)`), so one `ok` takes it. A Q is only
+for an answer that changes the set: a breaking contract, an owner's choice two picks share.
 
 `project.shared` paths (docs, registries, goldens) are nobody's: never an overlap, their
 conflicts are yours at G5.
@@ -77,7 +80,7 @@ conflicts are yours at G5.
 **Contract** — the interface as both sides see it, written before anyone codes:
 
 ```bash
-fael add decision "<signature / schema / behaviour / errors · check: <command>>" \
+fael add decision "<signature / schema / behaviour / errors — check: <command>>" \
   --title "contract <topic>: <one line>" --files <interface files> --key contract:<project>:<topic>
 ```
 
@@ -95,17 +98,14 @@ One table, two lines a row, no uid, no header, no `—` column:
 1  schema-x   M opus     → agent-3   contract:x
    fael-core/src/x.rs
 2  cli-x      S sonnet   → agent-2   pair #3
-   fael/src/x.rs
+   fael/src/x/ (near cap)
 ```
 
 `→` is the worktree it will run in (G4). Then each Q: `Q1 #2:` the problem in one line, one line
-per option, your pick as `(a)`. End with:
+per option, your pick as `(a)`. End with the one line:
 
 ```
-Reply:  ok           approve every row, (a) on every Q
-        ok 2 sonnet  the same, row 2 on sonnet
-        ok Q1 b      the same, Q1 takes b
-        no 3         row 3 waits
+Reply: ok · ok 2 sonnet · ok Q1 b · no 3
 ```
 
 The reply is the approval: apply each Q first (`fael chunk edit` clears an approval), then
@@ -139,7 +139,8 @@ read: ask again. **No reply, no set.**
    fael chunk wait <uid> "<question>" --on owner and exit.
    ```
 
-5. Start it in the background from that worktree:
+5. Start it in the background from that worktree; fael already holds `$sid` as the run's
+   `session`, which the board opens:
 
    ```bash
    claude -p --session-id $sid --model <m> --permission-mode auto --disallowedTools \
@@ -147,12 +148,6 @@ read: ask again. **No reply, no set.**
      "Bash(git clean *)" "Bash(git stash *)" "Bash(git branch -D *)" "Bash(git push *)" \
      "Bash(git worktree remove *)" "Bash(gh pr merge *)" "Bash(printenv *)" \
      "Read(./.env*)" "Edit(./.env*)" < <scratch>/brief-<uid>.md
-   ```
-
-6. Report the handles, one line per lane — the board and the owner reach a worker by its sid:
-
-   ```
-   #1 schema-x  run R  sid <sid>  agent-3
    ```
 
 ## G5 — Land and ship
@@ -207,7 +202,10 @@ next set: <labels> — a proposal, not started
 Last, the row the next lead resumes from (G1):
 
 ```bash
-fael add note "<set n: PR, in/out> · next: <labels, why> · misses: <classes> · open Qs: <…>" \
+fael add note "set <n>: PR <N>, in <labels>, out <labels>
+next: <labels, why>
+misses: <classes>
+open Qs: <…>" \
   --title "lead <project>: set <n> shipped, next <labels>" --key lead:<project> \
   --files <repo root> [--supersedes <last lead:<project> id>]
 ```
