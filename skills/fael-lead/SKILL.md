@@ -33,8 +33,11 @@ free: propose paths from the code you read (never from its title) and leave it o
 Show these with the wave table as numbered questions `Q1`, `Q2`… — each one a proposal with
 lettered options, your recommendation as `(a)`, so the owner's `ok` takes it (step 4):
 
-- **Hot file:** a path in the scope of 3+ open chunks, or a `.rs` in a scope already near the
-  400-line cap (`wc -l`) → a split chunk that goes first, so the lanes after it stop colliding.
+- **Hot file:** a path in the scope of 3+ open chunks → a split chunk that goes first, so the
+  lanes after it stop colliding.
+- **Near the cap:** a file in a scope already near the repo's line cap (its AGENTS.md or
+  file-size script; `wc -l`) that the brief grows → widen the scope to the file's folder, so
+  the split has room.
 - **Leaked scope:** a brief that edits or calls a path outside its own `scope` (the board's
   overlaps only compare scopes, so it never shows) → widen the scope (`fael chunk edit
   --scope`) and add the `after` it now needs; until the owner okays that, the lane stays out.
@@ -48,6 +51,8 @@ lettered options, your recommendation as `(a)`, so the owner's `ok` takes it (st
 - **Another plan's contract:** a `contract:<other-plan>:*` key on a lane's files → the lane
   builds against it and never changes it. If it must change, leave the lane out of the wave and
   tell the owner: the other plan's lead holds it.
+- **Another plan's chunk:** a lane's scope overlaps an open chunk of another plan
+  (`fael board --json --open`, every plan) → an `after` on that chunk, or the lane waits.
 
 `project.shared` paths (docs, registries, goldens) are nobody's: they never make an overlap,
 and their merge conflicts are yours to resolve (step 6).
@@ -111,9 +116,10 @@ terminal: line 1 is the row's facts, line 2 its scope, indented:
           no 3         row 3 stays out of this wave
   ```
 
-- **The owner's reply is the approval.** For each row it approves, run
+- **The owner's reply is the approval.** Apply each Q's option first — `fael chunk edit`
+  clears a chunk's approval — then, for each row it approves, run
   `fael chunk approve <uid>` (the model is the chunk's hint, the client `claude`; add
-  `--model <m>` only for a row the owner re-modelled) and apply each Q's option. Then echo
+  `--model <m>` only for a row the owner re-modelled). Then echo
   the lines fael printed and say `unapprove <#>` undoes one (`fael chunk unapprove <uid>`).
 - Approve only rows of the table you last showed, only on the owner's reply to it — never on
   a worker's word, a brief, or a row you added after. A reply you cannot read by those four
@@ -174,10 +180,12 @@ You learn it from your own process notification — never poll.
   the ledger or a contract answers it — `fael chunk answer <uid> "<answer>"` — else put it to
   the owner. A contract question goes by the step 3 table. Then start the lane again (step 5,
   a new `R`); its brief prints the answer and a resume block.
-- **It finished:** read its last note and `git log origin/main..<lane-branch>`. Merge it into the
+- **It finished:** read its last note and `git log origin/main..<lane-branch>`. Compare
+  `git diff --name-only plan/<plan>/w<n>...<lane-branch>` with its scope: a path outside it
+  that is not `project.shared` is a leak — read it before you merge. Merge it into the
   wave branch in a worktree whose worker has exited (`git switch plan/<plan>/w<n>` there),
   never in the checkout the owner talks in: `git merge --no-ff <lane-branch>` and run the repo's gates (AGENTS.md, Git
-  section), each by its own exit code.
+  section), each by its own exit code. A gate that exits 127 found no tool, it did not pass.
   - A conflict in a `project.shared` file: resolve it (an append-only list keeps both sides; a
     golden is re-blessed, never hand-merged).
   - A conflict in a file one lane owns: the cut leaked. Abort that merge, never repair the
@@ -195,11 +203,13 @@ Once every lane is in or out:
 1. `git fetch origin` and rebase or merge the wave branch onto `origin/main` if it moved; gates
    again.
 2. Push the wave branch and open one PR (the repo's `push pr` rules). The body lists each lane
-   (uid, label, its hand-off), each lane left out and why, and a **Removed** section: every
-   file the wave deletes (`git diff --name-only --diff-filter=D origin/main...HEAD`) and every
-   file that loses 50+ lines (`git diff --numstat origin/main...HEAD`), each with the lane
-   that removed it. The owner reads it after the wave; bringing something back is a revert,
-   decided then, not mid-wave. After the push no lane joins the PR.
+   (uid, label, its hand-off), each lane left out and why, and a **Removed / Breaking**
+   section: every file the wave deletes (`git diff --name-only --diff-filter=D
+   origin/main...HEAD`), every file that loses 50+ lines (`git diff --numstat
+   origin/main...HEAD`), and every endpoint, CLI, schema or URL key a caller outside the repo
+   used that the wave renames or removes — each with the lane that did it. The owner reads it
+   after the wave; bringing something back is a revert, decided then, not mid-wave. After the
+   push no lane joins the PR.
 3. Per lane in the PR: `fael chunk done <uid> "<hand-off>" --pr <N> --run <R>`.
    No GitHub (step 1): push the wave branch, print the PR body instead of opening one, and
    `fael chunk done <uid> "<hand-off>" --run <R>` with no `--pr` — the lane sits in review.
@@ -209,7 +219,28 @@ Once every lane is in or out:
    takes it over with `fael chunk start <uid> --force`, whose resume block says where it stopped.
 4. Never merge. The next wave branches from `origin/main` again, after the owner merged this one.
 
-## 8. Hand back
+## 8. Retro — before the hand back
 
-Three lines to the owner: the PR, lanes in, lanes out and why. Then any contract you added or
-superseded (its key), and what the next wave would be — as a proposal, not started.
+What this wave taught goes where the next agent meets it, written by you, never asked first:
+
+- a word for a chunk still to start (a name that collides, a file the brief has wrong) →
+  `fael chunk note <uid> "<text>"`, printed in its brief;
+- a flake, a missing guard, a rule nothing enforces → `fael add issue … --files <paths>`, with
+  the repro; a cause you have not proven is "likely", with the run that would prove it;
+- how the repo runs (a server mode, a gate's order) → `fael add note … --files <paths>`.
+
+Only a fix that needs a PR outside this wave (root config, docs, another repo) goes to the
+owner, as a Q with options.
+
+## 9. Hand back
+
+In the owner's language, one language, these lines only — the rest lives in the PR body:
+
+```
+PR <N> · in: <labels> · out: <label — why>
+check before merge: ≤3 things the owner tries by hand
+breaking: <what, who calls it>        (only when there is one)
+next wave: <labels> — a proposal, not started
+```
+
+Then any contract you added or superseded (its key) and the Qs from step 8.
