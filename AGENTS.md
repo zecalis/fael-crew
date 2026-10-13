@@ -54,6 +54,10 @@ fael close <id> "..."
 Every row needs `--files`. Write each row so it stands without this chat. Before ending a
 session that changed files, add a row.
 
+A row that cites another repo's row names the repo (`board:01M4TKYW`): `fael find` resolves
+ids in its own repo only. `lead:<plan>` is the lead's hand back; a row from outside a wave
+takes another key, or it replaces that hand back.
+
 ## Before changing a skill
 
 Run `scripts/wave-sandbox.sh` and lead the toy plan through it with the changed skill
