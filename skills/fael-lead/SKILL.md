@@ -154,8 +154,11 @@ terminal: line 1 is the row's facts, line 2 its scope, indented:
    `sid=$(uuidgen | tr A-Z a-z)`, then
    `CLAUDE_CODE_SESSION_ID=$sid fael chunk start <uid> --model <m> > <scratch>/brief-<uid>.md`.
    Its first line names the run `R` (`fael run R · …`): keep it for step 7.
-5. Append to that brief the body of each `contract:*` row the lane builds to or against
-   (`fael find --key contract:<plan>:<topic>`) and these rules, then start the worker as a background process from that worktree:
+5. The brief already ends with `contracts:` — each open `contract:*` row whose files overlap
+   the lane's scope (fael 0.54+). Append the body of each other contract the lane builds
+   against (`fael find --key contract:<plan>:<topic>`) — a consumer whose scope misses the
+   interface files gets it only from you — and these rules, then start the worker as a
+   background process from that worktree:
 
    ```text
    Lead's rules for this lane: do not run fael chunk done, do not push. After each step that
