@@ -146,9 +146,12 @@ terminal: line 1 is the row's facts, line 2 its scope, indented:
    uncommitted work. Take the highest-numbered free one first (`agent-3` before `agent-1`):
    owners keep the low numbers for their own work. Never share `CARGO_TARGET_DIR` between
    worktrees.
-4. In that worktree: `git switch -c <lane-branch> plan/<plan>/w<n>`, then
-   `fael chunk start <uid> --model <m> > <scratch>/brief-<uid>.md`. Its first line names the
-   run `R` (`fael run R · …`): keep it for step 7.
+4. In that worktree: `git switch -c <lane-branch> plan/<plan>/w<n>`, then give the worker its
+   own session id and start the chunk under it, so fael binds the worker's session, not
+   yours (the board tails the worker's transcript by it):
+   `sid=$(uuidgen | tr A-Z a-z)`, then
+   `CLAUDE_CODE_SESSION_ID=$sid fael chunk start <uid> --model <m> > <scratch>/brief-<uid>.md`.
+   Its first line names the run `R` (`fael run R · …`): keep it for step 7.
 5. Append to that brief the body of each `contract:*` row the lane builds to or against
    (`fael find --key contract:<plan>:<topic>`) and these rules, then start the worker as a background process from that worktree:
 
@@ -160,7 +163,7 @@ terminal: line 1 is the row's facts, line 2 its scope, indented:
    ```
 
    ```bash
-   claude -p --model <m> --permission-mode auto --disallowedTools \
+   claude -p --session-id $sid --model <m> --permission-mode auto --disallowedTools \
      "Bash(git reset --hard *)" "Bash(git checkout -- *)" "Bash(git restore *)" \
      "Bash(git clean *)" "Bash(git stash *)" "Bash(git branch -D *)" "Bash(git push *)" \
      "Bash(git worktree remove *)" "Bash(gh pr merge *)" "Bash(printenv *)" \
@@ -187,8 +190,8 @@ You learn it from your own process notification — never poll.
 
 - **It waited** (`fael chunk show <uid>` shows the wait): answer it yourself only when the code,
   the ledger or a contract answers it — `fael chunk answer <uid> "<answer>"` — else put it to
-  the owner. A contract question goes by the step 3 table. Then start the lane again (step 5,
-  a new `R`); its brief prints the answer and a resume block.
+  the owner. A contract question goes by the step 3 table. Then start the lane again (steps 4-5,
+  a new `sid` and `R`); its brief prints the answer and a resume block.
 - **It finished:** read its last note and `git log origin/main..<lane-branch>`. Compare
   `git diff --name-only plan/<plan>/w<n>...<lane-branch>` with its scope: a path outside it
   that is not `project.shared` is a leak — read it before you merge. Merge it into the
@@ -225,7 +228,7 @@ Once every lane is in or out:
    When the owner says it is merged, `fael chunk accept <uid>` per lane: until then an
    `after` on it stays blocked.
    A lane left out: `fael run end <R>`; it keeps its branch and notes, and the next wave
-   takes it over with `fael chunk start <uid> --force`, whose resume block says where it stopped.
+   takes it over with step 4's start plus `--force` (a new `sid`), whose resume block says where it stopped.
 4. Never merge. The next wave branches from `origin/main` again, after the owner merged this one.
 
 ## 8. Retro — before the hand back
