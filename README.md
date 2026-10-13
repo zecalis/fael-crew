@@ -7,16 +7,17 @@ A lead agent that runs a small team of 1–4 agents on one plan, on top of
 
 fael is the secretary: it keeps the plan, every chunk and the ledger (decisions, open
 issues, hand-offs), and hands them to an agent at the file or chunk it works on.
-fael-crew is the lead: it cuts the next wave of lanes, starts each approved lane as a
-headless `claude -p` worker in its own worktree, answers what workers ask, merges the
-lanes into one branch and opens one PR per wave. The owner approves every wave and
-merges every PR.
+fael-crew is the lead: one per project, it picks a set of 2–5 ready chunks across the
+project's plans, starts each approved one as a headless `claude -p` worker under its own
+session id, answers what workers ask, lands the lanes, has a fresh opus review and fix each set, merges
+sets into a local stack and pushes it as one PR on the owner's push pr. The owner approves
+every set and merges every PR on GitHub; local merges are the lead's.
 
 ## What's here
 
 | Path | What |
 |---|---|
-| `skills/fael-lead` | `/fael-lead <plan>` — lead one plan's waves with `claude -p` workers |
+| `skills/fael-lead` | `/fael-lead [project]` — lead one project's sets with `claude -p` workers |
 | `skills/fael-content` | `/fael-content` — plan a month of posts as chunks |
 | `scripts/wave-sandbox.sh` | rehearse a wave on a throwaway toy plan before a real one |
 
