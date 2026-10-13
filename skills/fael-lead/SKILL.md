@@ -42,7 +42,7 @@ fael board --json --open | jq --arg r <repo root> '.projects[] | select(.root ==
   | [.chunks[] | select(.ready and (.plan | IN($dev[])))] | length'
 ```
 
-- **0** → nothing to lead. Say so and stop.
+- **0** → nothing to lead (a chunk `blocked_by` only stacked ones waits for push pr: ask for it, G7.3). Say so and stop.
 - **1**, nothing of yours running → not yours: the owner starts it, or approves it to the queue
   and the board starts it (decision 01M4TYKJ). Stop.
 - **2+** → G1.
@@ -72,7 +72,7 @@ Take ready chunks in plan order. A chunk is **out** when a check fails and no fi
 | Check | Fails when | Fix |
 |---|---|---|
 | Known | `scope` empty | out this set; paths from the code (never the title) in its next row |
-| Disjoint | its scope, or a path its brief edits, meets another pick, a live run or an open PR; a changed pub item counts every caller (grep, tests included) | widen scope + `after` in the row, or out |
+| Disjoint | its scope, or a path its brief edits, meets another pick, a live run or an open PR; a changed pub item counts every caller (grep, tests included) | widen scope + `after` in the row, or out. A stacked chunk's paths are on the set branch already: scope only, no `after` (it waits for done, G7.4) |
 | Order | an `after` between two picks | small → `pair` in the row (one worker, one run); big → the later waits |
 | Interface | two picks meet at a type, schema, table, CLI or JSON | a contract (below) before either starts; no contract, no parallel |
 | Room | a file in scope near the repo's line cap that the brief grows | widen scope to its folder in the row |
@@ -195,8 +195,8 @@ could not fix → that lane out (G5), a `lead:miss:review` issue either way.
    plan/<project>/s<n>` — the set was cut from the stack's tip, which no set moves. Gates. The next set branches from
    the stack's tip at G4.1, not from `origin/main`: it does not wait on the owner.
 2. Before each set: `git fetch origin`; `origin/main` moved → rebase the stack onto it, gates.
-3. **Ship** when the owner says `push pr` — or ask once when the stack holds ~10 chunks or a
-   breaking change. Rebase onto `origin/main`, gates, push, one PR by the repo's `push pr` rules
+3. **Ship** when the owner says `push pr` — or ask once when the stack holds ~10 chunks, a
+   breaking change, or the next set waits on a stacked chunk's `after`. Rebase onto `origin/main`, gates, push, one PR by the repo's `push pr` rules
    (Windows CI per AGENTS.md). Body per set: lanes (uid, hand-off), lanes out and why, the
    review's verdict, and **Removed / Breaking** (deleted files, files that lost 50+ lines, any
    CLI, schema or URL key renamed or removed, with its lane).
