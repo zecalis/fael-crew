@@ -2,10 +2,10 @@
 
 ## What crew is
 
-crew is the lead: one agent that runs a small team of 1–4 agents on one fael plan. It cuts
-the next wave of lanes, starts each approved lane as a headless `claude -p` worker in its own
-worktree, answers what workers ask, merges the lanes into one branch and opens one PR per
-wave. The owner approves every wave and merges every PR.
+crew is the lead: one agent per project that picks a set of 2–5 ready chunks across its
+plans, starts each approved one as a headless `claude -p` worker under its own session id in
+its own worktree, answers what workers ask, stacks the lanes into one branch and opens one PR
+per set. The owner approves every set and merges every PR.
 
 [fael](https://github.com/zecalis/fael) is the secretary: it keeps the plan, every chunk
 and the ledger, and hands them to an agent at the file or chunk it works on. crew is an
@@ -55,8 +55,9 @@ Every row needs `--files`. Write each row so it stands without this chat. Before
 session that changed files, add a row.
 
 A row that cites another repo's row names the repo (`board:01M4TKYW`): `fael find` resolves
-ids in its own repo only. `lead:<plan>` is the lead's hand back; a row from outside a wave
-takes another key, or it replaces that hand back.
+ids in its own repo only. `lead:<project>` is the lead's hand back; a row from outside a set
+takes another key, or it replaces that hand back. `lead:miss:<class>` rows are the misses a
+skill change must cite (two sets of one class).
 
 ## Before changing a skill
 
