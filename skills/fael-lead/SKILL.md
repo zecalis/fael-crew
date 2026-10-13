@@ -50,6 +50,8 @@ lettered options, your recommendation as `(a)`, so the owner's `ok` takes it (st
 - **Leaked scope:** a brief that edits or calls a path outside its own `scope` (the board's
   overlaps only compare scopes, so it never shows) → widen the scope (`fael chunk edit
   --scope`) and add the `after` it now needs; until the owner okays that, the lane stays out.
+  A brief that changes a pub item (type, field, fn signature) edits every caller too: grep
+  them, tests included, and count their files as the brief's paths.
 - **Missing order:** two open chunks whose scopes overlap with no `after` between them → the
   `after` (`fael chunk apply` op `after`).
 - **Shared interface:** two lanes that meet at a type, schema, table, CLI or JSON output →
@@ -194,7 +196,9 @@ You learn it from your own process notification — never poll.
   a new `sid` and `R`); its brief prints the answer and a resume block.
 - **It finished:** read its last note and `git log origin/main..<lane-branch>`. Compare
   `git diff --name-only plan/<plan>/w<n>...<lane-branch>` with its scope: a path outside it
-  that is not `project.shared` is a leak — read it before you merge. Merge it into the
+  that is not `project.shared` is a leak — read it before you merge. A leak inside another
+  open chunk's scope (`fael board --json --open`, every plan) is that chunk's file: a Q to
+  the owner before you merge, never found after the PR. Merge it into the
   wave branch in a worktree whose worker has exited (`git switch plan/<plan>/w<n>` there),
   never in the checkout the owner talks in: `git merge --no-ff <lane-branch>` and run the repo's gates (AGENTS.md, Git
   section), each by its own exit code. A gate that exits 127 found no tool, it did not pass.
@@ -222,7 +226,8 @@ Once every lane is in or out:
    used that the wave renames or removes — each with the lane that did it. The owner reads it
    after the wave; bringing something back is a revert, decided then, not mid-wave. After the
    push no lane joins the PR.
-3. Per lane in the PR: `fael chunk done <uid> "<hand-off>" --pr <N> --run <R>`.
+3. Per lane in the PR: `fael chunk done <uid> "<hand-off>" --pr <N> --run <R>`. With `--pr`
+   the lane lands in done, not review (decision 01M4RRQ8K): nothing to accept after the merge.
    No GitHub (step 1): push the wave branch, print the PR body instead of opening one, and
    `fael chunk done <uid> "<hand-off>" --run <R>` with no `--pr` — the lane sits in review.
    When the owner says it is merged, `fael chunk accept <uid>` per lane: until then an
@@ -243,6 +248,10 @@ What this wave taught goes where the next agent meets it, written by you, never 
 
 Only a fix that needs a PR outside this wave (root config, docs, another repo) goes to the
 owner, as a Q with options.
+
+Before you propose a new rule or a fael feature, name the step of this skill or the decision
+(`fael find`) that should have caught it. If one already covers it, the fix is to follow it,
+not a new rule.
 
 ## 9. Hand back
 
