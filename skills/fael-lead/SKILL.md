@@ -15,11 +15,20 @@ your wave table names it (step 4): both are the owner's.
 its files are its own. Small chunks run one after another by one worker, or by you alone.
 Parallel lanes cost a contract, a merge and the owner's review — buy them only when they pay.
 
+## 0. Resume
+
+`fael find --key lead:<plan>`: the last lead's hand back (step 9) — the next wave it proposed,
+what it left undone, the Qs still open. Start from that row; never read an old session's
+transcript. No row = this plan's first wave.
+
 ## 1. Read the site
 
+The board carries the whole ledger and every project's chunks for the owner's app (846 KB on
+a 5-project machine); cut it with `jq` before it reaches you:
+
 ```bash
-fael board --json --open --plan <plan>     # chunks: scope, after, overlaps, state, approval
-fael board --json                           # every project: running[], worktrees[], shared
+fael board --json --open --plan <plan> | jq 'del(.projects[].ledger)'   # chunks: scope, after, overlaps, state, approval
+fael board --json | jq '{running: (.running|length), projects: [.projects[] | {name, root, shared, worktrees}]}'
 fael find --files a,b,c                     # each candidate's scope, comma-joined: decisions, issues, contract:* keys
 fael chunk show <uid>                       # each candidate's brief: the paths it really touches
 gh repo view --json url                     # fails: no GitHub here, step 7 ships without a PR
@@ -130,7 +139,7 @@ terminal: line 1 is the row's facts, line 2 its scope, indented:
 
 1. Wave branch from the latest base, without switching any checkout: `git fetch origin`, then
    `git branch plan/<plan>/w<n> origin/main`. Each lane branches from it.
-2. **Cap:** `fael board --json` — start a worker only while `running` (every project) is
+2. **Cap:** the step 1 site read again — start a worker only while `running` (every project) is
    below 6.
 3. **Worktree:** a `worktrees[]` entry of this project with `run: null`, never the one the
    owner keeps for talking (ask once which; default the main checkout) and never one with
@@ -244,3 +253,12 @@ next wave: <labels> — a proposal, not started
 ```
 
 Then any contract you added or superseded (its key) and the Qs from step 8.
+
+Last, the row the next lead resumes from (step 0) — the same next wave, leftovers and open Qs,
+superseding the previous one:
+
+```bash
+fael add note "<wave n: PR, lanes in/out> · next: <labels, why> · left: <undone> · open Qs: <…>" \
+  --title "lead <plan>: wave <n> shipped, next <labels>" --key lead:<plan> --files plan:<plan> \
+  [--supersedes <last lead:<plan> id>]
+```
