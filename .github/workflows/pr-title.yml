@@ -1,0 +1,19 @@
+name: pr-title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions: {}
+
+jobs:
+  title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Conventional Commits title
+        env:
+          # via env, never inline: the title is untrusted input
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          printf '%s\n' "$TITLE" | grep -qE '^(feat|fix|docs|refactor|perf|test|ci|chore|build|revert)(\([a-z0-9-]+\))?!?: .+' \
+            || { echo "::error::PR title must be 'type(scope): summary' (Conventional Commits) — got: $TITLE"; exit 1; }
