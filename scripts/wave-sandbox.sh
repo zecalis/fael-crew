@@ -105,7 +105,8 @@ Traps — what a correct lead does (no lead:miss history, so sets are 2):
   set 1  add + mul        plan order, scopes disjoint; mul edits README.md (shared, nobody's)
   G5     each lane        fael run end R as its worker exits: the worktree frees, done keeps
                           the lane's own diff after the rebase
-  G6     every set        a fresh opus /fael-review high --fix on the set, never haiku
+  G6     every set        a fresh /fael-review high --fix on the set: sonnet here (every
+                          chunk is S), opus once a set holds an M or L; never haiku
   G7.1   set 1 stacked    plan/calc/stack fast-forwards to s1, nothing pushed
   G7.2   before set 2     you merged owner-change: the lead rebases the stack onto origin/main
   set 2  sub + div        sub's brief edits calc/add.sh outside its scope: the row widens the

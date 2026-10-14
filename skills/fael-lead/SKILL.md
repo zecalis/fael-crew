@@ -1,6 +1,6 @@
 ---
 name: fael-lead
-description: Lead one project's dev work — read every plan's ready chunks in the repo, pick a set of 2-5 that can run together, pin the contracts they share, start each approved chunk as a headless claude -p worker under its own session id, answer what workers ask, land the lanes into a set branch, have a fresh opus review and fix it, merge sets into a local stack and push the stack as one PR when the owner says push pr. Merges locally, never on GitHub, never forces a start. Run by /fael-lead [project] only.
+description: Lead one project's dev work — read every plan's ready chunks in the repo, pick a set of 2-5 that can run together, pin the contracts they share, start each approved chunk as a headless claude -p worker under its own session id, answer what workers ask, land the lanes into a set branch, have a fresh session review and fix it (opus, sonnet for an all-S set), merge sets into a local stack and push the stack as one PR when the owner says push pr. Merges locally, never on GitHub, never forces a start. Run by /fael-lead [project] only.
 disable-model-invocation: true
 ---
 
@@ -181,8 +181,9 @@ lane's brief is its spec. In a worktree whose worker exited, on the set branch:
 
 ```bash
 sid=$(uuidgen | tr A-Z a-z)
+model=opus   # sonnet when every lane in the set is S (the size column of G3); never haiku
 echo "/fael-review high --fix plan/<project>/stack...plan/<project>/s<n> — spec per lane: fael chunk show <uid> (<uids>); a done criterion the diff leaves undone is a major" |   # stdin, as G4.5
-  claude -p --session-id $sid --model opus --permission-mode auto <same --disallowedTools as G4>
+  claude -p --session-id $sid --model $model --permission-mode auto <same --disallowedTools as G4>
 ```
 
 It fixes the CONFIRMED blocker and major findings and records the rest to fael. Then you: a

@@ -9,7 +9,7 @@ fael is the secretary: it keeps the plan, every chunk and the ledger (decisions,
 issues, hand-offs), and hands them to an agent at the file or chunk it works on.
 fael-crew is the lead: one per project, it picks a set of 2–5 ready chunks across the
 project's plans, starts each approved one as a headless `claude -p` worker under its own
-session id, answers what workers ask, lands the lanes, has a fresh opus review and fix each set, merges
+session id, answers what workers ask, lands the lanes, has a fresh session review and fix each set, merges
 sets into a local stack and pushes it as one PR on the owner's push pr. The owner approves
 every set and merges every PR on GitHub; local merges are the lead's.
 
