@@ -48,7 +48,7 @@ cd "$T/repo"
 echo a >a; git add a; git commit -qm init
 git remote add origin "$T/origin.git"; git push -q origin main; git fetch -q origin
 git remote set-head origin main
-for w in w1 w2 w3; do git worktree add -q --detach "$T/$w" origin/main; done
+for w in wt-t-agent-1 wt-t-agent-2 wt-t-agent-3; do git worktree add -q --detach "$T/$w" origin/main; done
 fael plan new sim "test" --area dev >/dev/null
 add() { fael chunk add "$1" --plan sim --label "$1" --scope "$1" --size "$2" --model haiku --brief "write $1" 2>/dev/null | tail -1; }
 A=$(add fa S) B=$(add fb S) C=$(add fc M) D=$(add fd S)
@@ -56,7 +56,7 @@ fael chunk add fe --plan sim --label fe --scope e/ --size S --brief "write e/" >
 for u in $A $B $C $D; do fael chunk approve "$u" >/dev/null; done
 
 # refusals: no set yet, the main worktree (the owner's checkout, left as it was), a dirty one
-expect 4 "$CR" work p 1 "$A" --in "$T/w1"
+expect 4 "$CR" work p 1 "$A" --in "$T/wt-t-agent-1"
 has "no plan/p/s1" "$T/out"
 git branch --no-track plan/p/s1 origin/main
 h=$(git symbolic-ref HEAD)
@@ -64,12 +64,12 @@ expect 4 "$CR" work p 1 "$A" --in "$T/repo"
 has "the main worktree" "$T/out"
 [ "$(git symbolic-ref HEAD)" = "$h" ] && [ -z "$(git branch --list "plan/p/lane/$A")" ] ||
   fail "work moved the main worktree"
-touch "$T/w1/junk"
-expect 4 "$CR" work p 1 "$A" --in "$T/w1"
-rm "$T/w1/junk"
+touch "$T/wt-t-agent-1/junk"
+expect 4 "$CR" work p 1 "$A" --in "$T/wt-t-agent-1"
+rm "$T/wt-t-agent-1/junk"
 
 # finished: a commit, a finished: note, the run ended with its cost, the worktree detached
-STUB=finish STUB_UID=$A expect 0 "$CR" work p 1 "$A" --in "$T/w1" --model haiku
+STUB=finish STUB_UID=$A expect 0 "$CR" work p 1 "$A" --in "$T/wt-t-agent-1" --model haiku
 has "· finished · \$0.25 · 1 commits" "$T/out"
 has "outside, unowned: $A" "$T/out"
 has "last note: finished: $A works" "$T/out"
@@ -81,52 +81,52 @@ has "Lead's rules:" "$T/stdin"
 has "fael chunk note $A" "$T/stdin"
 [ "$(show "$A" .run.ended)" != null ] || fail "run not ended"
 [ "$(show "$A" .run.cost)" = 0.25 ] || fail "cost not kept"
-! git -C "$T/w1" symbolic-ref -q HEAD >/dev/null || fail "w1 still on the lane"
+! git -C "$T/wt-t-agent-1" symbolic-ref -q HEAD >/dev/null || fail "w1 still on the lane"
 
 # waited, then a resume on the same lane: a note without finished: is a crash, so is a failed
 # or erroring claude even after a finished: note
-STUB=wait STUB_UID=$B expect 1 "$CR" work p 1 "$B" --in "$T/w2"
+STUB=wait STUB_UID=$B expect 1 "$CR" work p 1 "$B" --in "$T/wt-t-agent-2"
 has "wait: B=0 prints what?" "$T/out"
 fael chunk answer "$B" "prints error" >/dev/null
-STUB=step STUB_UID=$B expect 2 "$CR" work p 1 "$B" --in "$T/w2"
+STUB=step STUB_UID=$B expect 2 "$CR" work p 1 "$B" --in "$T/wt-t-agent-2"
 has "· crashed ·" "$T/out"
-STUB=fail STUB_UID=$B expect 2 "$CR" work p 1 "$B" --in "$T/w2"
+STUB=fail STUB_UID=$B expect 2 "$CR" work p 1 "$B" --in "$T/wt-t-agent-2"
 has "claude exit 3" "$T/out"
-STUB=error STUB_UID=$B expect 2 "$CR" work p 1 "$B" --in "$T/w2"
-STUB=finish STUB_UID=$B expect 0 "$CR" work p 1 "$B" --in "$T/w2"
+STUB=error STUB_UID=$B expect 2 "$CR" work p 1 "$B" --in "$T/wt-t-agent-2"
+STUB=finish STUB_UID=$B expect 0 "$CR" work p 1 "$B" --in "$T/wt-t-agent-2"
 [ "$(git rev-list --count plan/p/s1..plan/p/lane/$B)" = 1 ] || fail "resume left the lane"
 
 # beat: a slow worker is seen while it runs; started from outside the repo
-(cd / && STUB=slow STUB_UID=$D expect 0 "$CR" work p 1 "$D" --in "$T/w3")
+(cd / && STUB=slow STUB_UID=$D expect 0 "$CR" work p 1 "$D" --in "$T/wt-t-agent-3")
 [ "$(cat "$T/seen")" != null ] || fail "no beat while the worker ran"
 has "outside: none" "$T/out"
 
 # fael refuses a chunk another run holds: back to G2, the worktree left detached
-git -C "$T/w3" switch -q --detach
-(cd "$T/w3" && CLAUDE_CODE_SESSION_ID=x fael chunk start "$C" >/dev/null)
-expect 4 "$CR" work p 1 "$C" --in "$T/w1"
+git -C "$T/wt-t-agent-3" switch -q --detach
+(cd "$T/wt-t-agent-3" && CLAUDE_CODE_SESSION_ID=x fael chunk start "$C" >/dev/null)
+expect 4 "$CR" work p 1 "$C" --in "$T/wt-t-agent-1"
 has "fael refused the start" "$T/out"
-! git -C "$T/w1" symbolic-ref -q HEAD >/dev/null || fail "w1 left on the refused lane"
+! git -C "$T/wt-t-agent-1" symbolic-ref -q HEAD >/dev/null || fail "w1 left on the refused lane"
 
 # review: S lanes take sonnet, set 1 reviews against origin/main, a fix commit stays on HEAD
-expect 4 "$CR" review p 1 --in "$T/w1"
-STUB=fix expect 0 "$CR" review p 1 --in "$T/w1" --lanes "$A,$B"
+expect 4 "$CR" review p 1 --in "$T/wt-t-agent-1"
+STUB=fix expect 0 "$CR" review p 1 --in "$T/wt-t-agent-1" --lanes "$A,$B"
 has sonnet "$T/argv"
 has "origin/main...plan/p/s1" "$T/stdin"
 has "1 fix commits" "$T/out"
 has "outside, unowned: a" "$T/out"
 has "verdict: stub" "$T/out"
-git -C "$T/w1" switch -q --detach plan/p/s1
+git -C "$T/wt-t-agent-1" switch -q --detach plan/p/s1
 s=$(git rev-parse plan/p/s1)
-STUB=onset expect 0 "$CR" review p 1 --in "$T/w1" --lanes "$A,$C"
+STUB=onset expect 0 "$CR" review p 1 --in "$T/wt-t-agent-1" --lanes "$A,$C"
 has opus "$T/argv"
 has "1 fix commits" "$T/out"
 has "outside, in sim/fe: e/x" "$T/out"
-! git -C "$T/w1" symbolic-ref -q HEAD >/dev/null || fail "review left w1 on a branch"
+! git -C "$T/wt-t-agent-1" symbolic-ref -q HEAD >/dev/null || fail "review left w1 on a branch"
 git branch -f plan/p/s1 "$s" # the reviewer moved s1; put it back for the cases below
 git branch --no-track plan/p/stack origin/main
-git -C "$T/w1" switch -q --detach plan/p/s1
-STUB=dirty expect 2 "$CR" review p 1 --in "$T/w1" --lanes "$A"
+git -C "$T/wt-t-agent-1" switch -q --detach plan/p/s1
+STUB=dirty expect 2 "$CR" review p 1 --in "$T/wt-t-agent-1" --lanes "$A"
 has "plan/p/stack...plan/p/s1" "$T/stdin"
 has "uncommitted: 1 files the reviewer left" "$T/out"
 has "outside: none" "$T/out"
@@ -134,40 +134,54 @@ expect 4 "$CR" nope p 1
 
 # done: the trailers crew-git land wrote, once origin holds the stack; a rerun skips
 CG=$(dirname "$CR")/crew-git
-rm "$T/w1/junk"
+rm "$T/wt-t-agent-1/junk"
 # a pair: one lane, one run R for both halves; the worker writes outside its scope
 P=$(add fp S) Q=$(add fq S)
 printf '[{"op":"pair","chunks":["%s","%s"]}]' "$P" "$Q" | fael chunk apply --json - >/dev/null
 for u in $P $Q; do fael chunk approve "$u" >/dev/null; done
-STUB=finish STUB_UID=$P expect 0 "$CR" work p 1 "$P" --in "$T/w1"
+STUB=finish STUB_UID=$P expect 0 "$CR" work p 1 "$P" --in "$T/wt-t-agent-1"
 has "outside, unowned: $P" "$T/out"
 [ "$(show "$Q" .run.id)" = "$(show "$P" .run.id)" ] || fail "the pair did not share one run"
-for u in $A $B $P; do expect 0 "$CG" land p 1 "$u" -m "lane $u" --run "$(show "$u" .run.id)" --gate true --in "$T/w2"; done
-expect 0 "$CG" stack p 1 --gate true --in "$T/w2"
+for u in $A $B $P; do expect 0 "$CG" land p 1 "$u" -m "lane $u" --run "$(show "$u" .run.id)" --gate true --in "$T/wt-t-agent-2"; done
+expect 0 "$CG" stack p 1 --gate true --in "$T/wt-t-agent-2"
 expect 4 "$CR" done p --pr 5
 has "crew-git ship first" "$T/out"
 fael chunk note "$A" "kept x: the gate fails without it" >/dev/null
-expect 0 "$CG" ship p --gate true --in "$T/w2"
-(cd / && expect 0 "$CR" done p --pr 5 --in "$T/w2")
+fael chunk note "$B" "finished: $B works, commit on plan/p/lane/$B, not pushed" >/dev/null
+expect 0 "$CG" ship p --gate true --in "$T/wt-t-agent-2"
+(cd / && expect 0 "$CR" done p --pr 5 --in "$T/wt-t-agent-2")
 for u in $A $B $P $Q; do [ "$(show "$u" .state)" = done ] || fail "$u not done"; done
 ! grep -q 'outside,' "$T/out" || fail "done repeated the outside lines run end printed"
 [ "$(show "$A" .handoff.text)" = "$A works · kept x: the gate fails without it" ] ||
   fail "hand-off is not A's finished: note and its kept note"
+kB=$(git log --format=%h --grep "^lane $B\$" plan/p/stack)
+[ "$(show "$B" .handoff.text)" = "$B works, commit on $kB (PR 5), not pushed" ] ||
+  fail "hand-off still names B's deleted lane branch: $(show "$B" .handoff.text)"
 [ "$(show "$Q" .handoff.text)" = "$P works" ] || fail "the pair's other half lost the lane's hand-off"
 [ "$(show "$D" .state)" != done ] || fail "D done without a trailer"
-expect 0 "$CR" done p --pr 5 --in "$T/w2"
+expect 0 "$CR" done p --pr 5 --in "$T/wt-t-agent-2"
 has "$A already done" "$T/out"
 has "$Q already done" "$T/out"
 # a trailer naming a run fael no longer holds: done stops non-zero, the chunk stays open
 expect 0 "$CG" cut p 2
-git -C "$T/w2" switch -q --detach plan/p/s2
-(cd "$T/w2" && git commit -q --allow-empty -m "d" -m "Fael-Chunk: $D
+git -C "$T/wt-t-agent-2" switch -q --detach plan/p/s2
+(cd "$T/wt-t-agent-2" && git commit -q --allow-empty -m "d" -m "Fael-Chunk: $D
 Fael-Run: 01M4XXXXXXXXXXXXXXXXXXXXXX")
-expect 0 "$CG" stack p 2 --gate true --in "$T/w2"
-expect 0 "$CG" ship p --gate true --in "$T/w2"
-expect 1 "$CR" done p --pr 5 --in "$T/w2"
+expect 0 "$CG" stack p 2 --gate true --in "$T/wt-t-agent-2"
+expect 0 "$CG" ship p --gate true --in "$T/wt-t-agent-2"
+expect 1 "$CR" done p --pr 5 --in "$T/wt-t-agent-2"
 has "not 01M4XXXXXXXXXXXXXXXXXXXXXX" "$T/out"
 [ "$(show "$D" .state)" != done ] || fail "D done under a run it no longer holds"
+
+# scope: a path the brief names outside the scope (and project.shared) is listed; a label works
+S1=$(fael chunk add fs --plan sim --label fs --scope s/ --size S --brief "Write s/a.sh and s/b/c.sh, then edit lib/x.sh and README.md." 2>/dev/null | tail -1)
+mkdir -p .fael && echo README.md >.fael/shared
+expect 0 "$CR" scope p "$S1"
+has "unscoped fs: lib/x.sh" "$T/out"
+! grep -q "s/a.sh\|README.md" "$T/out" || fail "scope listed a path inside the scope or shared"
+expect 0 "$CR" scope p "$A"
+has "unscoped: none" "$T/out"
+rm .fael/shared
 
 # drift: every crew-git / crew-run verb SKILL.md calls (a command starts a backtick span) is one
 # the script takes

@@ -85,7 +85,7 @@ git commit -qam "docs: say POSIX"
 git push -q origin owner-change
 git switch -q main
 git branch -q -D owner-change
-for n in 1 2 3; do git worktree add -q "$DIR/w$n" -b "idle-$n"; done
+for n in 1 2 3; do git worktree add -q "$DIR/wt-calc-agent-$n" -b "idle-$n"; done
 
 fael plan new sim "Lead rehearsal: calc ops" --area dev >/dev/null
 add() { fael chunk add "$1" --plan sim --label "$2" --scope "$3" --size S --model haiku --brief "$4" | tail -1; }
@@ -102,7 +102,7 @@ add "calc mod" mod calc/mod.sh \
 
 cat <<EOF
 
-Sandbox ready: $DIR/calc (origin: $DIR/origin.git, worktrees: w1 w2 w3)
+Sandbox ready: $DIR/calc (origin: $DIR/origin.git, worktrees: wt-calc-agent-1..3)
 
 Traps — what a correct lead does (no lead:miss history, so sets are 2):
   set 1  add + mul        plan order, scopes disjoint; mul edits README.md (shared, nobody's)

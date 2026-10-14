@@ -36,7 +36,8 @@ critical point (a contract, a migration, auth, money) — never a whole set.
 
 ## G0 — Is there a set?
 
-Branch moves: `crew-git` next to this file; `…` = `--gate "<AGENTS.md gates, &&>" --in <free worktree>`.
+Branch moves: `crew-git` next to this file; `…` = `--gate "<AGENTS.md gates, &&>" --in <gate wt>`, the
+gate worktree: the lowest-numbered free `wt-*` (lanes take the highest, G4.2), one for every `…` and G6.
 First `crew-git sync <project> …` (G7.2), whatever the count below: it deletes a stack the owner merged.
 
 ```bash
@@ -60,10 +61,11 @@ fael board --json | jq '.running | length'
 ```
 
 Per ready chunk: `scope`, `blocked_by`, `pair`, `overlaps` (live runs and open PRs included),
-and `fael chunk show <uid>` for the paths its brief really edits. Per past set: the `touched`
+and `crew-run scope <project> <uids>`: each path a brief names that its scope lacks. Per past set: the `touched`
 of its chunks — two that share a path collided, whatever their scopes said. `--open` drops
 stacked chunks: they are the stack's `Fael-Chunk` trailers (`git log origin/main..plan/<project>/stack`),
-their `touched` in `fael chunk show <uid> --json`.
+their `touched` in `fael chunk show <uid> --json`. From run end to G7.4's done a chunk reads
+`running`: stacked, waiting for that done, not stuck.
 
 `running` (every project) ≥ 6 → stop; the machine is full.
 
@@ -76,15 +78,16 @@ Take ready chunks in plan order. A chunk is **out** when a check fails and no fi
 
 | Check | Fails when | Fix |
 |---|---|---|
-| Known | `scope` empty | out this set; paths from the code (never the title) in its next row |
-| Disjoint | its scope, or a path its brief edits, meets another pick, a live run or an open PR; a changed pub item counts every caller (grep, tests included) | widen scope + `after` in the row, or out. A stacked chunk's paths are on the set branch already: widen scope, no `after` on it — that `after` holds the new chunk until the stacked one is done, at push pr (G7.4) |
+| Scoped | `scope` empty (board: `— no scope`), or `crew-run scope` (G1) lists a path the brief edits | empty: out this set, named in G3 as `skipped, no scope: <uid>…` for the owner or `/fael-plan`, never dropped silently. A missing path: the scope lists it before the set (widen it in the row, the owner's `ok` sets it with `fael chunk edit --scope`) or back to `/fael-plan`; never left to the brief's prose |
+| Disjoint | its scope meets another pick, a live run or an open PR; a changed pub item counts every caller (grep, tests included) | widen scope + `after` in the row, or out. A stacked chunk's paths are on the set branch already: widen scope, no `after` on it — that `after` holds the new chunk until the stacked one is done, at push pr (G7.4) |
 | Order | an `after` between two picks | small → `pair` in the row (one worker, one run); big → the later waits |
 | Interface | two picks meet at a type, schema, table, CLI or JSON | a contract (below) before either starts; no contract, no parallel |
 | Room | a file in scope near the repo's line cap that the brief grows | widen scope to its folder in the row |
 | Question | a brief leaves a choice to the owner | a Q in this table, its answer a `chunk note` — never a worker's wait |
 
 A mechanical fix rides in its row (`scope → x/ (near cap)`), so one `ok` takes it. A Q is only
-for an answer that changes the set or a brief: a breaking contract, an owner's choice.
+for an answer that changes the set or a brief: a breaking contract, an owner's choice. Each pick
+gets one line of why; a pick you cannot justify in one line is out.
 
 `project.shared` paths (docs, registries, goldens) are nobody's: never an overlap, their
 conflicts are yours at G5.
@@ -100,16 +103,14 @@ A change is a new row with `--supersedes`, never an edit. Additive (optional fie
 yours, then `fael chunk note` each lane on it. Breaking (rename, remove, retype, new required
 input): the owner's, by a Q.
 
-Each pick gets one line of why. A pick you cannot justify in one line is out.
-
 ## G3 — The owner approves
 
 One table, two lines a row, no uid, no header, no `—` column:
 
 ```
-1  schema-x   M opus     → agent-3   contract:x
+1  schema-x   M opus     → wt-fael-agent-3  contract:x
    fael-core/src/x.rs · first in plan order, its scope meets no other pick
-2  cli-x      S sonnet   → agent-2   pair #3
+2  cli-x      S sonnet   → wt-fael-agent-2  pair #3
    fael/src/x/ (near cap) · reads x only through contract:x
 ```
 
@@ -145,16 +146,15 @@ with `run_in_background`; its exit wakes you, a subagent lead too, with its outp
 - **4 refused** → `fael chunk start` said `blocked` or `held`: back to G2 (principle 2).
 - **1 waited** → answer with `fael chunk answer <uid> "…"` only when the code, the ledger or a
   contract answers it; else the owner. Then `crew-run work` again: it resumes the lane.
-- **2 crashed** → its commits, `last note` and `uncommitted:` lines say where. `crew-run work`
-  again, or out.
+- **2 crashed** → its commits, `last note` and `uncommitted:` say where; `crew-run work` again, or out.
 - **0 finished** → its `outside, in <plan>/<label>: <path>` and `outside, unowned: <path>` lines
   are the scope check (`project.shared` excluded) — never diff it yourself. Unowned: kept only
   if the lane's gate fails without it, as `fael chunk note <uid> "kept <path>: <why>"` (done
   hands it on); else on the lane in a free worktree `git restore -s plan/<project>/s<n> <path>`
-  and commit. In another open chunk: a Q before it lands. Then land it in plan order, `--in` a free worktree:
-  `crew-git land <project> <n> <uid> -m "<chunk title>" --run <R> …` squashes it (WIP commits
-  are resume checkpoints, not PR history) with its chunk and run as trailers (G7.4 reads them)
-  and moves the set only once the gates pass; a failure moves nothing.
+  and commit. In another open chunk: a Q before it lands. Then land it in plan order: `crew-git
+  land <project> <n> <uid> -m "<chunk title>" --run <R> …` squashes it (WIP commits are resume
+  checkpoints) with its chunk and run as trailers (G7.4 reads them) and moves the set only once
+  the gates pass; a failure moves nothing.
   - conflict in a `project.shared` file → on the lane in a free worktree `git rebase plan/<project>/s<n>`,
     resolve (lists keep both sides; goldens re-bless; `git diff --check` clean), land again;
   - conflict in a file a lane owns, or gates fail on top of another lane → out, its note says
@@ -163,7 +163,7 @@ with `run_in_background`; its exit wakes you, a subagent lead too, with its outp
 ## G6 — Review and fix
 
 Every set, no exception: the lead wrote the cut, so a fresh session judges the diff, and each
-lane's brief is its spec. `crew-run review <project> <n> --in <free worktree> --lanes <landed uids>`
+lane's brief is its spec. `crew-run review <project> <n> --in <gate wt> --lanes <landed uids>`
 runs `/fael-review high --fix` on the set against the stack (sonnet for an all-S set, else
 opus), its fixes committed on that worktree's HEAD, the rest recorded to fael. Its `outside`
 lines read as G5's (a kept note on a lane, a restore on that HEAD); its last lines are the
@@ -174,16 +174,16 @@ could not fix → that lane out (G5), a `lead:miss:review` issue either way.
 
 ## G7 — Stack, and ship on the owner's word
 
-1. Stack the set — yours, not a PR: `crew-git stack <project> <n> …` `--in` the G6 worktree
-   fast-forwards the stack to its HEAD and deletes `s<n>` and each landed lane. The next set
-   branches from the stack's tip at G4.1: it does not wait on the owner.
+1. Stack the set — yours, not a PR: `crew-git stack <project> <n> …` fast-forwards the stack to
+   the gate worktree's HEAD and deletes `s<n>` and each landed lane. The next set branches from
+   the stack's tip at G4.1: it does not wait on the owner.
 2. At G0: `crew-git sync <project> …` replays the stack onto `origin/main`, minus what merged.
 3. **Ship** when the owner says `push pr` — or ask once when the stack holds ~10 chunks, a
    breaking change, or the next set waits on a stacked chunk's `after`. `crew-git ship <project> …`
-   (sync, gates, a lease-guarded push), then one PR by the repo's `push pr` rules
-   (Windows CI per AGENTS.md). Body per set: lanes (uid, hand-off), lanes out and why, the
-   review's verdict, **Removed / Breaking** (deleted files, files that lost 50+ lines, any CLI,
-   schema or URL key renamed or removed, with its lane), and **Merge danger**: one-way or two-way door · blast radius in a word.
+   (sync, gates, a lease-guarded push), then one PR by the repo's `push pr` rules (Windows CI per
+   AGENTS.md). Body per set: lanes (uid, hand-off), lanes out and why, the review's verdict,
+   **Removed / Breaking** (deleted files, files that lost 50+ lines, any CLI, schema or URL key
+   renamed or removed, with its lane), **Merge danger**: one- or two-way door · blast radius in a word.
 4. Then `crew-run done <project> --pr <N>`: it dones every chunk the stack's trailers name, its
    hand-off the lane's `finished:` note; a rerun skips what is done. Then re-file the G8 note
    with `stack: PR <N>`. The PR's merge on GitHub is the owner's, always.
@@ -213,13 +213,11 @@ next set: <labels> — a proposal, not started      (or: none — <why>)
 
 Last, the row the next lead resumes from (G1) — the one point to `/clear` or compact; mid-set, a
 live lane lives only in this context. Re-file it at a G0 stop too. `--files` warns on a path only
-the stack holds yet: expected.
+the stack holds yet: expected. Commas and full stops only: fael refuses two `·`, or three `;`/`·`.
 
 ```bash
-fael add note "set <n>: stacked, in <labels>, out <labels>
-next: <labels, why>
-misses: <classes>
-open Qs: <…>" \
+fael add note "Set <n> stacked, in <labels>, out <labels>. Next: <labels>, because <why>.
+Misses: <classes, or none>. Open Qs: <each, or none>." \
   --title "lead <project>: set <n> stacked, next <labels>" --key lead:<project> \
   --files <paths the set touched, a,b> [--supersedes <last lead:<project> id>]
 ```
