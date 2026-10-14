@@ -166,12 +166,15 @@ done)
   for t in $(git log --reverse --format='%(trailers:key=Fael-Chunk,valueonly,separator=)|%(trailers:key=Fael-Run,valueonly,separator=)' "origin/main..$K"); do
     u=${t%%|*} r=${t#*|}
     [ -n "$u" ] || continue # a review fix: no chunk of its own
+    fin='[.notes[] | select(startswith("finished:"))] | last // empty | ltrimstr("finished: ")'
+    lane=$(fael chunk show "$u" --json | jq -r "$fin")
+    # a pair is one lane, one run: each half is done on its own, its hand-off the lane's when it
+    # wrote none
     for c in $u $(fael chunk show "$u" --json | jq -r '.pair[]'); do
       j=$(fael chunk show "$c" --json)
       [ "$(echo "$j" | jq -r .state)" != done ] || { echo "$c already done"; continue; }
-      h=$(echo "$j" | jq -r '[.notes[] | select(startswith("finished:"))] | last // empty')
-      h=${h#finished: }
-      fael chunk done "$c" "${h:-landed in $st}" --pr "$pr" ${r:+--run "$r"}
+      h=$(echo "$j" | jq -r "$fin")
+      fael chunk done "$c" "${h:-${lane:-landed in $st}}" --pr "$pr" ${r:+--run "$r"}
     done
   done
   ;;

@@ -123,17 +123,37 @@ expect 4 "$CR" nope p 1
 # done: the trailers crew-git land wrote, once origin holds the stack; a rerun skips
 CG=$(dirname "$CR")/crew-git
 rm "$T/w1/junk"
-for u in $A $B; do expect 0 "$CG" land p 1 "$u" -m "lane $u" --run "$(show "$u" .run.id)" --gate true --in "$T/w2"; done
+# a pair: one lane, one run R for both halves; the worker writes outside its scope
+P=$(add fp S) Q=$(add fq S)
+printf '[{"op":"pair","chunks":["%s","%s"]}]' "$P" "$Q" | fael chunk apply --json - >/dev/null
+for u in $P $Q; do fael chunk approve "$u" >/dev/null; done
+STUB=finish STUB_UID=$P expect 0 "$CR" work p 1 "$P" --in "$T/w1"
+has "outside, unowned: $P" "$T/out"
+[ "$(show "$Q" .run.id)" = "$(show "$P" .run.id)" ] || fail "the pair did not share one run"
+for u in $A $B $P; do expect 0 "$CG" land p 1 "$u" -m "lane $u" --run "$(show "$u" .run.id)" --gate true --in "$T/w2"; done
 expect 0 "$CG" stack p 1 --gate true --in "$T/w2"
 expect 4 "$CR" done p --pr 5
 has "crew-git ship first" "$T/out"
 expect 0 "$CG" ship p --gate true --in "$T/w2"
 (cd / && expect 0 "$CR" done p --pr 5 --in "$T/w2")
-for u in $A $B; do [ "$(show "$u" .state)" = done ] || fail "$u not done"; done
+for u in $A $B $P $Q; do [ "$(show "$u" .state)" = done ] || fail "$u not done"; done
+! grep -q 'outside,' "$T/out" || fail "done repeated the outside lines run end printed"
 [ "$(show "$A" .handoff.text)" = "$A works" ] || fail "hand-off is not A's finished: note"
+[ "$(show "$Q" .handoff.text)" = "$P works" ] || fail "the pair's other half lost the lane's hand-off"
 [ "$(show "$D" .state)" != done ] || fail "D done without a trailer"
 expect 0 "$CR" done p --pr 5 --in "$T/w2"
 has "$A already done" "$T/out"
+has "$Q already done" "$T/out"
+# a trailer naming a run fael no longer holds: done stops non-zero, the chunk stays open
+expect 0 "$CG" cut p 2
+git -C "$T/w2" switch -q --detach plan/p/s2
+(cd "$T/w2" && git commit -q --allow-empty -m "d" -m "Fael-Chunk: $D
+Fael-Run: 01M4XXXXXXXXXXXXXXXXXXXXXX")
+expect 0 "$CG" stack p 2 --gate true --in "$T/w2"
+expect 0 "$CG" ship p --gate true --in "$T/w2"
+expect 1 "$CR" done p --pr 5 --in "$T/w2"
+has "not 01M4XXXXXXXXXXXXXXXXXXXXXX" "$T/out"
+[ "$(show "$D" .state)" != done ] || fail "D done under a run it no longer holds"
 
 # drift: every crew-git / crew-run verb SKILL.md calls (a command starts a backtick span) is one
 # the script takes
