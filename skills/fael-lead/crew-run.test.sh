@@ -53,11 +53,10 @@ add() { fael chunk add "$1" --plan sim --label "$1" --scope "$1" --size "$2" --m
 A=$(add fa S) B=$(add fb S) C=$(add fc M) D=$(add fd S)
 for u in $A $B $C $D; do fael chunk approve "$u" >/dev/null; done
 
-# refusals: no set yet, the caller's own worktree, a dirty one
+# refusals: no set yet, a dirty worktree
 expect 4 "$CR" work p 1 "$A" --in "$T/w1"
 has "no plan/p/s1" "$T/out"
 git branch --no-track plan/p/s1 origin/main
-expect 4 "$CR" work p 1 "$A" --in "$T/repo"
 touch "$T/w1/junk"
 expect 4 "$CR" work p 1 "$A" --in "$T/w1"
 rm "$T/w1/junk"
@@ -89,8 +88,8 @@ STUB=error STUB_UID=$B expect 2 "$CR" work p 1 "$B" --in "$T/w2"
 STUB=finish STUB_UID=$B expect 0 "$CR" work p 1 "$B" --in "$T/w2"
 [ "$(git rev-list --count plan/p/s1..plan/p/lane/$B)" = 1 ] || fail "resume left the lane"
 
-# beat: a slow worker is seen while it runs
-STUB=slow STUB_UID=$D expect 0 "$CR" work p 1 "$D" --in "$T/w3"
+# beat: a slow worker is seen while it runs; started from outside the repo
+(cd / && STUB=slow STUB_UID=$D expect 0 "$CR" work p 1 "$D" --in "$T/w3")
 [ "$(cat "$T/seen")" != null ] || fail "no beat while the worker ran"
 
 # fael refuses a chunk another run holds: back to G2, the worktree left detached
@@ -115,4 +114,25 @@ STUB=dirty expect 2 "$CR" review p 1 --in "$T/w1" --lanes "$A"
 has "plan/p/stack...plan/p/s1" "$T/stdin"
 has "uncommitted: 1 files the reviewer left" "$T/out"
 expect 4 "$CR" nope p 1
+
+# done: the trailers crew-git land wrote, once origin holds the stack; a rerun skips
+CG=$(dirname "$CR")/crew-git
+rm "$T/w1/junk"
+for u in $A $B; do expect 0 "$CG" land p 1 "$u" -m "lane $u" --run "$(show "$u" .run.id)" --gate true --in "$T/w2"; done
+expect 0 "$CG" stack p 1 --gate true --in "$T/w2"
+expect 4 "$CR" done p --pr 5
+has "crew-git ship first" "$T/out"
+expect 0 "$CG" ship p --gate true --in "$T/w2"
+(cd / && expect 0 "$CR" done p --pr 5 --in "$T/w2")
+for u in $A $B; do [ "$(show "$u" .state)" = done ] || fail "$u not done"; done
+[ "$(show "$A" .handoff.text)" = "$A works" ] || fail "hand-off is not A's finished: note"
+[ "$(show "$D" .state)" != done ] || fail "D done without a trailer"
+expect 0 "$CR" done p --pr 5 --in "$T/w2"
+has "$A already done" "$T/out"
+
+# drift: every crew-git / crew-run verb SKILL.md names is one the script takes
+for v in $(grep -oE 'crew-(git|run) [a-z]+' "$(dirname "$CR")/SKILL.md" | sort -u | tr ' ' :); do
+  ! "$(dirname "$CR")/${v%%:*}" "${v#*:}" p 1 x 2>&1 | grep -q 'unknown verb' ||
+    fail "SKILL.md calls ${v%%:*} ${v#*:}, which the script does not take"
+done
 echo "crew-run: all pass"

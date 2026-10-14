@@ -23,7 +23,9 @@ git add -A; git commit -qm "readme, union"
 git remote add origin "$T/origin.git"; git push -q origin main; git fetch -q origin
 git switch -q --detach HEAD~1 # the worktree crew-git runs in has no .gitattributes: attr.tree must
 for w in w1 w2 w3; do git worktree add -q --detach "$T/$w" origin/main; done
-git branch --no-track plan/p/s1 origin/main
+expect 0 "$CG" cut p 1
+[ "$(r plan/p/s1)" = "$(r origin/main)" ] || fail "cut s1 not at origin/main"
+expect 4 "$CG" cut p 1
 
 # mklane <uid> <base> <shell edit>: a lane with one WIP commit, made in w3
 mklane() {
@@ -41,6 +43,8 @@ git -C "$T/w2" switch -q plan/p/lane/D # D stays checked out: stack must not del
 # land: squash, union on a shared list, conflict, gate failures, CAS, dirty worktree
 expect 0 "$CG" land p 1 A -m "add a" --gate "$G" --in "$T/w1"
 [ "$(r plan/p/lane/A)" = none ] || fail "landed lane/A not deleted"
+[ "$(git log -1 --format='%(trailers:key=Fael-Chunk,valueonly)%(trailers:key=Fael-Run)' plan/p/s1)" = A ] ||
+  fail "land A: want trailer Fael-Chunk: A and no Fael-Run"
 grep -q 'restore: git branch plan/p/lane/A ' "$T/out" || fail "no restore line"
 expect 0 "$CG" land p 1 B -m "add b" --gate "$G" --in "$T/w1"
 git show plan/p/s1:README | grep -qx a && git show plan/p/s1:README | grep -qx b || fail "union lost a line"
@@ -61,9 +65,13 @@ git update-ref refs/heads/plan/p/s1 "$s"
 touch "$T/w1/junk"
 expect 4 "$CG" land p 1 D -m "d" --gate "$G" --in "$T/w1"
 rm "$T/w1/junk"
-expect 4 "$CG" land p 1 D -m "d" --gate "$G" --in "$T/repo"
-expect 0 "$CG" land p 1 D -m "d" --gate "$G" --in "$T/w1"
-expect 4 "$CG" land p 1 D -m "d" --gate "$G" --in "$T/w1"
+expect 4 "$CG" land p 1 D -m "d" --run 'R 1' --gate "$G" --in "$T/w1"
+# any cwd: from --in itself, then from outside the repo
+(cd "$T/w1" && expect 0 "$CG" land p 1 D -m "d" --run R1 --gate "$G" --in "$T/w1")
+[ "$(git log -1 --format='%(trailers:key=Fael-Chunk,valueonly,separator=)|%(trailers:key=Fael-Run,valueonly,separator=)' plan/p/s1)" = 'D|R1' ] ||
+  fail "land D: trailers missing"
+(cd / && expect 4 "$CG" land p 1 D -m "d" --gate "$G" --in "$T/w1")
+grep -q 'already in s1' "$T/out" || fail "land from outside the repo did not reach the repo"
 
 # stack: ff, s1 and landed lanes gone, lane out (C) and held lane (D) kept
 git -C "$T/w1" switch -q --detach plan/p/s1
@@ -75,7 +83,8 @@ for b in lane/C lane/D; do [ "$(r "plan/p/$b")" != none ] || fail "$b deleted"; 
 # ship, then the owner squash-merges it while set 2 stacks on top
 expect 0 "$CG" ship p --gate "$G" --in "$T/w1"
 [ "$(git --git-dir="$T/origin.git" rev-parse plan/p/stack)" = "$(r plan/p/stack)" ] || fail "not pushed"
-git branch plan/p/s2 plan/p/stack
+expect 0 "$CG" cut p 2 --in "$T/w1"
+[ "$(r plan/p/s2)" = "$(r plan/p/stack)" ] || fail "cut s2 not at the stack"
 mklane F plan/p/s2 'echo f >> README'
 expect 0 "$CG" land p 2 F -m "f" --gate "$G" --in "$T/w1"
 git -C "$T/w1" switch -q --detach plan/p/s2

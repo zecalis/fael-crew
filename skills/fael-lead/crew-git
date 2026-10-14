@@ -1,12 +1,15 @@
 #!/bin/sh
 # crew-git — the lead's git moves under plan/<p>/. Each one is computed in memory, gated in a
 # free worktree, then applied as one update-ref transaction against the old values, so a set
-# or stack tip that failed its gates never exists. State is git refs only. Run it from any
-# worktree of the repo.
+# or stack tip that failed its gates never exists. State is git refs only. Run it from any cwd:
+# it works from a worktree of <wt>'s repo other than <wt>.
 #
-#   crew-git land  <p> <n> <uid> -m <title> --gate <cmd> --in <wt>
-#       squash plan/<p>/lane/<uid> into one commit on plan/<p>/s<n>, then delete the lane
-#       unless a worktree has it out
+#   crew-git cut   <p> <n> [--in <wt>]
+#       create plan/<p>/s<n> at plan/<p>/stack (no stack: origin/main); no checkout moves
+#   crew-git land  <p> <n> <uid> -m <title> [--run <R>] --gate <cmd> --in <wt>
+#       squash plan/<p>/lane/<uid> into one commit on plan/<p>/s<n>, trailers Fael-Chunk: <uid>
+#       and Fael-Run: <R> (crew-run done reads them), then delete the lane unless a worktree
+#       has it out
 #   crew-git stack <p> <n> --gate <cmd> --in <wt>
 #       fast-forward plan/<p>/stack to <wt>'s HEAD (s<n> plus review fixes), delete s<n>
 #   crew-git sync  <p> --gate <cmd> --in <wt>
@@ -36,26 +39,31 @@ case $p in '' | *[!A-Za-z0-9._-]*) die 4 "bad project: $p" ;; esac
 n= uid=
 case $verb in
   land) [ $# -ge 2 ] || die 4 "land <p> <n> <uid> …"; n=$1 uid=$2; shift 2 ;;
-  stack) [ $# -ge 1 ] || die 4 "stack <p> <n> …"; n=$1; shift ;;
+  stack | cut) [ $# -ge 1 ] || die 4 "$verb <p> <n> …"; n=$1; shift ;;
   sync | ship) ;;
   *) die 4 "unknown verb: $verb" ;;
 esac
-msg= gate= wt=
+msg= gate= wt= run=
 while [ $# -gt 0 ]; do
   [ $# -ge 2 ] || die 4 "$1 needs a value"
-  case $1 in -m) msg=$2 ;; --gate) gate=$2 ;; --in) wt=$2 ;; *) die 4 "unknown option: $1" ;; esac
+  case $1 in
+    -m) msg=$2 ;; --gate) gate=$2 ;; --in) wt=$2 ;; --run) run=$2 ;; *) die 4 "unknown option: $1" ;;
+  esac
   shift 2
 done
 case $n in *[!0-9]*) die 4 "bad set number: $n" ;; esac
-case $uid in *[!A-Za-z0-9]*) die 4 "bad uid: $uid" ;; esac
+case $uid$run in *[!A-Za-z0-9]*) die 4 "bad uid or run: $uid $run" ;; esac
 [ "$verb" != land ] || [ -n "$msg" ] || die 4 "land needs -m <title>"
-[ -n "$gate" ] && [ -n "$wt" ] || die 4 "needs --gate <cmd> --in <worktree>"
+[ "$verb" = cut ] || { [ -n "$gate" ] && [ -n "$wt" ]; } || die 4 "needs --gate <cmd> --in <worktree>"
 
 common() { git -C "${1:-.}" rev-parse --path-format=absolute --git-common-dir; }
-[ "$(common "$wt" 2>/dev/null)" = "$(common)" ] || die 4 "$wt is not a worktree of this repo"
-[ "$(git -C "$wt" rev-parse --show-toplevel)" != "$(git rev-parse --show-toplevel)" ] ||
-  die 4 "$wt is the worktree you run in; pass a free one"
-[ -z "$(git -C "$wt" status --porcelain)" ] || die 4 "$wt has uncommitted work"
+if [ -n "$wt" ]; then
+  wt=$(git -C "$wt" rev-parse --show-toplevel 2>/dev/null) || die 4 "$wt is not a git worktree"
+  [ -z "$(git -C "$wt" status --porcelain)" ] || die 4 "$wt has uncommitted work"
+  # run from <wt>'s repo, never from <wt> itself: the gate moves its checkout
+  [ "$(common 2>/dev/null)" = "$(common "$wt")" ] && [ "$(git rev-parse --show-toplevel 2>/dev/null)" != "$wt" ] ||
+    cd "$(git -C "$wt" worktree list --porcelain | sed -n 's/^worktree //p' | grep -vxF "$wt" | head -1 | grep . || echo "$wt")"
+fi
 
 R=refs/heads/plan/$p
 log=$(common)/crew-git-$p.log
@@ -160,7 +168,8 @@ land)
     echo "conflict landing lane/$uid on s$n:" >&2; echo "$out" | tail -n +2 >&2
     w=$(holder "$lane")
     die 1 "resolve in ${w:-a free worktree}: git rebase plan/$p/s$n, then land again"; }
-  N=$(git commit-tree "$(echo "$out" | head -1)" -p "$S" -m "$msg")
+  N=$(printf '%s\n\nFael-Chunk: %s\n%s' "$msg" "$uid" "${run:+Fael-Run: $run
+}" | git commit-tree "$(echo "$out" | head -1)" -p "$S")
   gate "$N"
   # the squash is the lane now: containment alone misses one a later lane or fix touched again
   [ -z "$(holder "$lane")" ] && del="delete $lane $L" || del=
@@ -183,6 +192,13 @@ stack)
 $del
 $(lanes "$H")"
   echo "stacked s$n: plan/$p/stack -> $(short "$H")"
+  ;;
+cut)
+  sha "$R/s$n" >/dev/null && die 4 "plan/$p/s$n exists"
+  git fetch -q --no-prune origin
+  b=$(sha "$R/stack") || b=$(sha refs/remotes/origin/main) || die 4 "no stack and no origin/main"
+  git update-ref "$R/s$n" "$b" "" || die 3 "plan/$p/s$n appeared under us"
+  echo "cut plan/$p/s$n at $(git rev-parse --short "$b") ($(sha "$R/stack" >/dev/null && echo stack || echo origin/main))"
   ;;
 sync) sync_stack ;;
 ship)
