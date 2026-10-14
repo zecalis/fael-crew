@@ -35,6 +35,8 @@ owner did, and it judges nothing.
 - `skills/fael-content/SKILL.md`: `/fael-content`
 - `skills/fael-lead/crew-git`: the lead's branch moves (land, stack, sync, ship), gated and
   atomic; `crew-git.test.sh` beside it is its check
+- `skills/fael-lead/crew-run`: the lead's processes (a worker per lane, the set's reviewer):
+  start, beat, run end, a one-line verdict; `crew-run.test.sh` beside it is its check
 - `scripts/wave-sandbox.sh`: rehearse a lead (sets, review, stack, push pr) on a toy project
 
 Skills are markdown, and there is no binary. Stateless git helpers next to a skill are fine:
