@@ -78,8 +78,7 @@ Take ready chunks in plan order. A chunk is **out** when a check fails and no fi
 
 | Check | Fails when | Fix |
 |---|---|---|
-| Known | `scope` empty | out this set; paths from the code (never the title) in its next row |
-| Scoped | `crew-run scope` (G1) lists a path the brief edits | the scope lists it before the set: widen it in the row (the owner's `ok` sets it, `fael chunk edit --scope`) or back to `/fael-plan`; never left to the brief's prose |
+| Scoped | `scope` empty (board: `— no scope`), or `crew-run scope` (G1) lists a path the brief edits | empty: out this set, named in G3 as `skipped, no scope: <uid>…` for the owner or `/fael-plan`, never dropped silently. A missing path: the scope lists it before the set (widen it in the row, the owner's `ok` sets it with `fael chunk edit --scope`) or back to `/fael-plan`; never left to the brief's prose |
 | Disjoint | its scope meets another pick, a live run or an open PR; a changed pub item counts every caller (grep, tests included) | widen scope + `after` in the row, or out. A stacked chunk's paths are on the set branch already: widen scope, no `after` on it — that `after` holds the new chunk until the stacked one is done, at push pr (G7.4) |
 | Order | an `after` between two picks | small → `pair` in the row (one worker, one run); big → the later waits |
 | Interface | two picks meet at a type, schema, table, CLI or JSON | a contract (below) before either starts; no contract, no parallel |
