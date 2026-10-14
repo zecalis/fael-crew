@@ -1,0 +1,192 @@
+#!/bin/sh
+# crew-git — the lead's git moves under plan/<p>/. Each one is computed in memory, gated in a
+# free worktree, then applied as one update-ref transaction against the old values, so a set
+# or stack tip that failed its gates never exists. State is git refs only. Run it from any
+# worktree of the repo.
+#
+#   crew-git land  <p> <n> <uid> -m <title> --gate <cmd> --in <wt>
+#       squash plan/<p>/lane/<uid> into one commit on plan/<p>/s<n>
+#   crew-git stack <p> <n> --gate <cmd> --in <wt>
+#       fast-forward plan/<p>/stack to <wt>'s HEAD (s<n> plus review fixes), delete s<n>
+#   crew-git sync  <p> --gate <cmd> --in <wt>
+#       fetch; replay the stack onto origin/main minus what already merged (squash merges too);
+#       refuses while a plan/<p>/s<n> exists, since a replay would strand it
+#   crew-git ship  <p> --gate <cmd> --in <wt>
+#       sync, then push the stack with a lease; the PR stays the lead's
+#
+# stack and sync also delete each plan/<p>/lane/* whose changes the stack (or origin/main)
+# already holds and no worktree has checked out. A deletion prints its restore line; that
+# works until gc drops the unreachable commits (gc.pruneExpire, two weeks by default).
+#
+# Exit: 0 ok · 1 conflict, files printed, nothing moved · 2 gate failed, its exit printed
+# (127 = no tool) · 3 a ref moved under us, nothing changed · 4 refused (usage, git < 2.54,
+# missing ref, dirty or held worktree, not a fast-forward)
+set -eu
+
+die() { c=$1; shift; echo "crew-git: $*" >&2; exit "$c"; }
+
+git version | awk '{split($3, v, "."); exit !(v[1] > 2 || (v[1] == 2 && v[2] >= 54))}' ||
+  die 4 "needs git >= 2.54, have $(git version)"
+
+verb=${1:-}; p=${2:-}
+[ $# -ge 2 ] || die 4 "usage: see the head of $0"
+shift 2
+case $p in '' | *[!A-Za-z0-9._-]*) die 4 "bad project: $p" ;; esac
+n= uid=
+case $verb in
+  land) [ $# -ge 2 ] || die 4 "land <p> <n> <uid> …"; n=$1 uid=$2; shift 2 ;;
+  stack) [ $# -ge 1 ] || die 4 "stack <p> <n> …"; n=$1; shift ;;
+  sync | ship) ;;
+  *) die 4 "unknown verb: $verb" ;;
+esac
+msg= gate= wt=
+while [ $# -gt 0 ]; do
+  [ $# -ge 2 ] || die 4 "$1 needs a value"
+  case $1 in -m) msg=$2 ;; --gate) gate=$2 ;; --in) wt=$2 ;; *) die 4 "unknown option: $1" ;; esac
+  shift 2
+done
+case $n in *[!0-9]*) die 4 "bad set number: $n" ;; esac
+case $uid in *[!A-Za-z0-9]*) die 4 "bad uid: $uid" ;; esac
+[ "$verb" != land ] || [ -n "$msg" ] || die 4 "land needs -m <title>"
+[ -n "$gate" ] && [ -n "$wt" ] || die 4 "needs --gate <cmd> --in <worktree>"
+
+common() { git -C "${1:-.}" rev-parse --path-format=absolute --git-common-dir; }
+[ "$(common "$wt" 2>/dev/null)" = "$(common)" ] || die 4 "$wt is not a worktree of this repo"
+[ "$(git -C "$wt" rev-parse --show-toplevel)" != "$(git rev-parse --show-toplevel)" ] ||
+  die 4 "$wt is the worktree you run in; pass a free one"
+[ -z "$(git -C "$wt" status --porcelain)" ] || die 4 "$wt has uncommitted work"
+
+R=refs/heads/plan/$p
+log=$(common)/crew-git-$p.log
+sha() { git rev-parse -q --verify "$1^{commit}"; }
+short() { git rev-parse --short "$1"; }
+holder() { git for-each-ref --format='%(worktreepath)' "$1"; }
+
+# mt <attr-tip> <merge-tree args>: in-memory merge. Attributes (merge=union on shared lists)
+# come from <attr-tip>, not from whatever this worktree has checked out.
+mt() { a=$1; shift; git -c attr.tree="$a" merge-tree --write-tree --name-only --no-messages "$@"; }
+
+# contained <commit> <target>: <target> already has every change <commit> makes
+contained() {
+  git merge-base --is-ancestor "$1" "$2" ||
+    [ "$(mt "$2" "$2" "$1" 2>/dev/null | head -1)" = "$(git rev-parse "$2^{tree}")" ]
+}
+
+# merged <pushed> <main>: a commit on <main>'s first-parent line since <pushed> forked holds all
+# of <pushed> — the squash merge, even after main changed the same lines again.
+# ponytail: one merge-tree per main commit since the fork; batch with merge-tree --stdin if slow
+merged() {
+  for m in $(git rev-list --first-parent "$(git merge-base "$1" "$2")..$2"); do
+    contained "$1" "$m" && return 0
+  done
+  return 1
+}
+
+# pick <onto> <commit>: replay one commit onto <onto> with its author and message; prints the
+# new tip (<onto> itself when the change is already there). Conflict: files to stderr, fails.
+pick() {
+  out=$(mt "$1" --merge-base="$2^" "$1" "$2") || {
+    echo "conflict replaying $(git log -1 --format='%h %s' "$2"):" >&2; echo "$out" | tail -n +2 >&2; return 1; }
+  t=$(echo "$out" | head -1)
+  [ "$t" != "$(git rev-parse "$1^{tree}")" ] || { echo "$1"; return; }
+  git log -1 --format=%B "$2" |
+    GIT_AUTHOR_NAME=$(git log -1 --format=%an "$2") GIT_AUTHOR_EMAIL=$(git log -1 --format=%ae "$2") \
+    GIT_AUTHOR_DATE=$(git log -1 --format=%ad --date=raw "$2") git commit-tree "$t" -p "$1"
+}
+
+# gate <commit>: check <commit> out detached in <wt> and run the gate there, output to $log
+gate() {
+  git -C "$wt" switch -q --detach "$1"
+  rc=0; (cd "$wt" && sh -c "$gate") >"$log" 2>&1 || rc=$?
+  [ $rc = 0 ] && { echo "gate ok on $(short "$1")"; return; }
+  tail -n 30 "$log" >&2
+  [ $rc = 127 ] && rc="127 (no tool)"
+  die 2 "gate exit $rc on $(short "$1"), nothing moved · full log: $log"
+}
+
+# lanes <target>: a delete line per lane <target> already holds and no worktree has out
+lanes() {
+  git for-each-ref --format='%(objectname) %(refname) %(worktreepath)' "$R/lane" |
+    while read -r o r w; do [ -z "$w" ] && contained "$o" "$1" && echo "delete $r $o"; done || :
+}
+
+# tx <lines>: apply update-ref lines as one transaction, then print each deletion's restore line
+tx() {
+  printf '%s\n' "$1" | grep . | git update-ref --stdin -m "crew-git $verb $p" ||
+    die 3 "a ref moved under us; nothing changed"
+  printf '%s\n' "$1" | while read -r op r o; do
+    [ "$op" = delete ] && echo "deleted ${r#refs/heads/} was $o · restore: git branch ${r#refs/heads/} $o"
+  done || :
+}
+
+# sync_stack: fetch, then bring plan/<p>/stack onto origin/main without what already merged
+sync_stack() {
+  git fetch -q --no-prune origin
+  M=$(sha refs/remotes/origin/main) || die 4 "no origin/main"
+  st=$R/stack
+  K=$(sha $st) || { tx "$(lanes "$M")"; echo "no stack"; return; }
+  [ -z "$(holder $st)" ] || die 4 "plan/$p/stack is checked out in $(holder $st)"
+  drop() { tx "delete $st $K
+$(lanes "$M")"; echo "stack merged into origin/main"; }
+  git merge-base --is-ancestor "$K" "$M" && { drop; return; }
+  git merge-base --is-ancestor "$M" "$K" && { tx "$(lanes "$K")"; echo "stack up to date on origin/main"; return; }
+  # a rewrite would strand a set cut from the old tip
+  sets=$(git for-each-ref --format='%(refname:short)' "$R/s[0-9]*")
+  [ -z "$sets" ] || die 4 "origin/main moved and the stack needs a replay, but $sets branched from it; stack or drop that set first"
+  base=$(git merge-base "$K" "$M")
+  # the pushed stack, once merged (a squash too), is where the replay starts
+  P=$(sha "refs/remotes/origin/plan/$p/stack") &&
+    git merge-base --is-ancestor "$P" "$K" && merged "$P" "$M" && base=$P
+  [ -z "$(git rev-list --merges "$base..$K")" ] || die 4 "plan/$p/stack holds a merge commit"
+  new=$M
+  for c in $(git rev-list --reverse "$base..$K"); do new=$(pick "$new" "$c") || exit 1; done
+  [ "$new" != "$M" ] || { drop; return; }
+  gate "$new"
+  tx "update $st $new $K
+$(lanes "$new")"
+  echo "stack $(short "$K") -> $(short "$new") on origin/main $(short "$M")"
+}
+
+case $verb in
+land)
+  set=$R/s$n lane=$R/lane/$uid
+  S=$(sha "$set") || die 4 "no plan/$p/s$n"
+  L=$(sha "$lane") || die 4 "no plan/$p/lane/$uid"
+  [ -z "$(holder "$set")" ] || die 4 "plan/$p/s$n is checked out in $(holder "$set")"
+  ! contained "$L" "$S" || die 4 "lane/$uid is already in s$n"
+  B=$(git merge-base "$S" "$L")
+  out=$(mt "$S" --merge-base="$B" "$S" "$L") || {
+    echo "conflict landing lane/$uid on s$n:" >&2; echo "$out" | tail -n +2 >&2
+    w=$(holder "$lane")
+    die 1 "resolve in ${w:-a free worktree}: git rebase plan/$p/s$n, then land again"; }
+  N=$(git commit-tree "$(echo "$out" | head -1)" -p "$S" -m "$msg")
+  gate "$N"
+  tx "update $set $N $S"
+  echo "landed lane/$uid on s$n: $(short "$S") -> $(short "$N")"
+  ;;
+stack)
+  set=$R/s$n st=$R/stack
+  S=$(sha "$set") || die 4 "no plan/$p/s$n"
+  H=$(git -C "$wt" rev-parse HEAD)
+  git merge-base --is-ancestor "$S" "$H" || die 4 "$wt is not on s$n"
+  K=$(sha $st) || K=
+  [ -z "$K" ] || git merge-base --is-ancestor "$K" "$H" || die 4 "s$n is not on the stack tip"
+  [ -z "$(holder $st)" ] || die 4 "plan/$p/stack is checked out in $(holder $st)"
+  gate "$H"
+  head=${K:+update $st $H $K}
+  [ -z "$(holder "$set")" ] && del="delete $set $S" || del=
+  tx "${head:-create $st $H}
+$del
+$(lanes "$H")"
+  echo "stacked s$n: plan/$p/stack -> $(short "$H")"
+  ;;
+sync) sync_stack ;;
+ship)
+  sync_stack
+  K=$(sha "$R/stack") || die 4 "nothing to ship"
+  P=$(sha "refs/remotes/origin/plan/$p/stack") || P=
+  git push -q --force-with-lease="refs/heads/plan/$p/stack:$P" origin "$K:refs/heads/plan/$p/stack" ||
+    die 3 "origin's plan/$p/stack moved since the fetch; nothing pushed"
+  echo "pushed plan/$p/stack $(short "$K")"
+  ;;
+esac

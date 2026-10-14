@@ -18,12 +18,13 @@ every set and merges every PR on GitHub; local merges are the lead's.
 | Path | What |
 |---|---|
 | `skills/fael-lead` | `/fael-lead [project]` — lead one project's sets with `claude -p` workers |
+| `skills/fael-lead/crew-git` | the lead's branch moves: land, stack, sync, ship — gated, atomic, needs git ≥ 2.54 |
 | `skills/fael-content` | `/fael-content` — plan a month of posts as chunks |
 | `scripts/wave-sandbox.sh` | rehearse a lead on a throwaway toy project before a real one |
 
 ## Requirements
 
-- macOS
+- macOS, git ≥ 2.54
 - [fael](https://github.com/zecalis/fael) (`brew install zecalis/tap/fael`, then `fael install`)
 - [Claude Code](https://claude.com/claude-code) (`claude` on `PATH`)
 

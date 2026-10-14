@@ -33,9 +33,12 @@ owner did, and it judges nothing.
 
 - `skills/fael-lead/SKILL.md`: `/fael-lead [project]`
 - `skills/fael-content/SKILL.md`: `/fael-content`
+- `skills/fael-lead/crew-git`: the lead's branch moves (land, stack, sync, ship), gated and
+  atomic; `crew-git.test.sh` beside it is its check
 - `scripts/wave-sandbox.sh`: rehearse a lead (sets, review, stack, push pr) on a toy project
 
-Skills are markdown and there is no binary. A binary comes only when skill-held wave state
+Skills are markdown, and there is no binary. Stateless git helpers next to a skill are fine:
+their only state is git refs, so they pass the cache test above. A binary comes only when skill-held wave state
 (PIDs, free worktrees) proves unreliable, for example a lead session crashing and leaving
 workers orphaned. Users link the skills from this checkout, so a change here is live on
 `git pull` and needs no release.
