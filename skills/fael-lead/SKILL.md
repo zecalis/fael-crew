@@ -213,13 +213,11 @@ next set: <labels> — a proposal, not started      (or: none — <why>)
 
 Last, the row the next lead resumes from (G1) — the one point to `/clear` or compact; mid-set, a
 live lane lives only in this context. Re-file it at a G0 stop too. `--files` warns on a path only
-the stack holds yet: expected.
+the stack holds yet: expected. Commas and full stops only: fael refuses two `·`, or three `;`/`·`.
 
 ```bash
-fael add note "set <n>: stacked, in <labels>, out <labels>
-next: <labels, why>
-misses: <classes>
-open Qs: <…>" \
+fael add note "Set <n> stacked, in <labels>, out <labels>. Next: <labels>, because <why>.
+Misses: <classes, or none>. Open Qs: <each, or none>." \
   --title "lead <project>: set <n> stacked, next <labels>" --key lead:<project> \
   --files <paths the set touched, a,b> [--supersedes <last lead:<project> id>]
 ```
