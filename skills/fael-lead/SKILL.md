@@ -64,7 +64,8 @@ Per ready chunk: `scope`, `blocked_by`, `pair`, `overlaps` (live runs and open P
 and `crew-run scope <project> <uids>`: each path a brief names that its scope lacks. Per past set: the `touched`
 of its chunks — two that share a path collided, whatever their scopes said. `--open` drops
 stacked chunks: they are the stack's `Fael-Chunk` trailers (`git log origin/main..plan/<project>/stack`),
-their `touched` in `fael chunk show <uid> --json`.
+their `touched` in `fael chunk show <uid> --json`. From run end to G7.4's done a chunk reads
+`running`: stacked, waiting for that done, not stuck.
 
 `running` (every project) ≥ 6 → stop; the machine is full.
 
@@ -146,8 +147,7 @@ with `run_in_background`; its exit wakes you, a subagent lead too, with its outp
 - **4 refused** → `fael chunk start` said `blocked` or `held`: back to G2 (principle 2).
 - **1 waited** → answer with `fael chunk answer <uid> "…"` only when the code, the ledger or a
   contract answers it; else the owner. Then `crew-run work` again: it resumes the lane.
-- **2 crashed** → its commits, `last note` and `uncommitted:` lines say where. `crew-run work`
-  again, or out.
+- **2 crashed** → its commits, `last note` and `uncommitted:` say where; `crew-run work` again, or out.
 - **0 finished** → its `outside, in <plan>/<label>: <path>` and `outside, unowned: <path>` lines
   are the scope check (`project.shared` excluded) — never diff it yourself. Unowned: kept only
   if the lane's gate fails without it, as `fael chunk note <uid> "kept <path>: <why>"` (done
