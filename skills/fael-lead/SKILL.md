@@ -136,9 +136,7 @@ and `review` in the background: its exit is your notification — never poll.
    share `CARGO_TARGET_DIR`.
 3. Per lane: `crew-run work <project> <n> <uid> --in <worktree> [--contract <id>]…`, one
    `--contract` per contract the lane builds against that its brief's `contracts:` block does
-   not list; `--model` only if re-modelled. It starts the lane under the worker's own session
-   id, adds the lead's rules to the brief, denies what destroys unseen work, keeps the run seen,
-   ends it and frees the worktree. A pair: either uid, the brief carries both.
+   not list; `--model` only if re-modelled. A pair: either uid, the brief carries both.
 
 ## G5 — Land
 
@@ -150,14 +148,15 @@ and `review` in the background: its exit is your notification — never poll.
 - **2 crashed** → its commits, `last note` and `uncommitted:` lines say where. `crew-run work`
   again, or out.
 - **0 finished** → its `outside, in <plan>/<label>: <path>` and `outside, unowned: <path>` lines
-  are the scope check (`project.shared` excluded) — never diff it yourself. Unowned: read it;
-  in another open chunk: a Q before it lands. Then land it in plan order, `--in` a free worktree:
+  are the scope check (`project.shared` excluded) — never diff it yourself. Unowned: kept only
+  if the lane's gate fails without it, as `fael chunk note <uid> "kept <path>: <why>"` (done
+  hands it on); else on the lane in a free worktree `git restore -s plan/<project>/s<n> <path>`
+  and commit. In another open chunk: a Q before it lands. Then land it in plan order, `--in` a free worktree:
   `crew-git land <project> <n> <uid> -m "<chunk title>" --run <R> …` squashes it (WIP commits
   are resume checkpoints, not PR history) with its chunk and run as trailers (G7.4 reads them)
   and moves the set only once the gates pass; a failure moves nothing.
-  - conflict in a `project.shared` file → in a free worktree `git switch plan/<project>/lane/<uid>`,
-    `git rebase plan/<project>/s<n>`, resolve (lists keep both sides; goldens re-bless),
-    `git diff --check` finds no marker left, land again;
+  - conflict in a `project.shared` file → on the lane in a free worktree `git rebase plan/<project>/s<n>`,
+    resolve (lists keep both sides; goldens re-bless; `git diff --check` clean), land again;
   - conflict in a file a lane owns, or gates fail on top of another lane → out, its note says
     why, and a `lead:miss` issue (G8).
 

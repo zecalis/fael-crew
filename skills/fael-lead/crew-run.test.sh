@@ -146,11 +146,13 @@ for u in $A $B $P; do expect 0 "$CG" land p 1 "$u" -m "lane $u" --run "$(show "$
 expect 0 "$CG" stack p 1 --gate true --in "$T/w2"
 expect 4 "$CR" done p --pr 5
 has "crew-git ship first" "$T/out"
+fael chunk note "$A" "kept x: the gate fails without it" >/dev/null
 expect 0 "$CG" ship p --gate true --in "$T/w2"
 (cd / && expect 0 "$CR" done p --pr 5 --in "$T/w2")
 for u in $A $B $P $Q; do [ "$(show "$u" .state)" = done ] || fail "$u not done"; done
 ! grep -q 'outside,' "$T/out" || fail "done repeated the outside lines run end printed"
-[ "$(show "$A" .handoff.text)" = "$A works" ] || fail "hand-off is not A's finished: note"
+[ "$(show "$A" .handoff.text)" = "$A works · kept x: the gate fails without it" ] ||
+  fail "hand-off is not A's finished: note and its kept note"
 [ "$(show "$Q" .handoff.text)" = "$P works" ] || fail "the pair's other half lost the lane's hand-off"
 [ "$(show "$D" .state)" != done ] || fail "D done without a trailer"
 expect 0 "$CR" done p --pr 5 --in "$T/w2"

@@ -17,7 +17,8 @@
 #   crew-run done   <p> --pr <N> [--in <wt>]
 #       after crew-git ship: fael chunk done --pr N --run R for each Fael-Chunk/Fael-Run trailer
 #       on origin/main..plan/<p>/stack (crew-git land wrote them) and its pair, the hand-off the
-#       lane's finished: note; chunks already done are skipped, so a rerun is safe
+#       lane's finished: note and its "kept <path>: <why>" notes; chunks already done are skipped,
+#       so a rerun is safe
 #
 # Exit, its own table (crew-git's 1 and 2 mean other things): 0 finished · 1 waited on the
 # owner · 2 crashed (claude failed, no new "finished:" note, or a reviewer left uncommitted
@@ -201,13 +202,15 @@ done)
     [ -n "$u" ] || continue # a review fix: no chunk of its own
     fin='[.notes[] | select(startswith("finished:"))] | last // empty | ltrimstr("finished: ")'
     lane=$(fael chunk show "$u" --json | jq -r "$fin")
+    # an unowned path the lead kept (G5) rides in the hand-off: kept <path>: <why>
+    kept=$(fael chunk show "$u" --json | jq -r '[.notes[] | select(startswith("kept "))] | join(" · ")')
     # a pair is one lane, one run: each half is done on its own, its hand-off the lane's when it
     # wrote none
     for c in $u $(fael chunk show "$u" --json | jq -r '.pair[]'); do
       j=$(fael chunk show "$c" --json)
       [ "$(echo "$j" | jq -r .state)" != done ] || { echo "$c already done"; continue; }
       h=$(echo "$j" | jq -r "$fin")
-      fael chunk done "$c" "${h:-${lane:-landed in $st}}" --pr "$pr" ${r:+--run "$r"}
+      fael chunk done "$c" "${h:-${lane:-landed in $st}}${kept:+ · $kept}" --pr "$pr" ${r:+--run "$r"}
     done
   done
   ;;
