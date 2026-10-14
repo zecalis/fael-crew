@@ -75,8 +75,9 @@ fael plan new <app>-content-<yyyy-mm> "<goal of the month>" --app <app> --area m
 ```
 
 Fill the sections it writes into fael.db (no file — `fael plan export <plan> --json`, set each
-`"sections"` body by key, `fael plan apply`, as the line it prints says): Goal = goal of the month · pillars · cadence; Constraints = `VOICE.md` and the channel limits. Every post brief
-prints it. Then one chunk per post, in date order:
+`"sections"` body by key, `fael plan apply`, as the line it prints says): Goal = goal of the month · pillars · cadence; Constraints = `VOICE.md` and the channel limits;
+Done = the post's Done when (below). Every post brief prints them: the post agent never loads
+this skill. Then one chunk per post, in date order:
 
 ```bash
 fael chunk add "<topic> · <format> · <yyyy-mm-dd>" --plan <app>-content-<yyyy-mm> \
