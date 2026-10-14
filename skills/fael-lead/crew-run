@@ -20,11 +20,15 @@
 #
 # Exit, its own table (crew-git's 1 and 2 mean other things): 0 finished · 1 waited on the
 # owner · 2 crashed (claude failed, no new "finished:" note, or a reviewer left uncommitted
-# work) · 4 refused (usage, missing ref, dirty or main worktree, fael refused the start, stack not
+# work) · 4 refused (usage, fael < 0.58.0, missing ref, dirty or main worktree, fael refused the start, stack not
 # pushed); done stops at the first fael refusal with its exit
 set -eu
 
 die() { c=$1; shift; echo "crew-run: $*" >&2; exit "$c"; }
+
+# 0.58.0: run end prints the lane's outside lines, the lead's scope check (G5)
+fael --version | awk '{split($2, v, "."); exit !(v[1] > 0 || v[2] >= 58)}' ||
+  die 4 "needs fael >= 0.58.0, have $(fael --version)"
 
 # the board calls a run stalled after 30 min unseen (fael board.rs); beat well inside that
 beat=${CREW_RUN_BEAT:-300}
@@ -117,7 +121,10 @@ EOF
   kill $bp 2>/dev/null || :
   wait $bp 2>/dev/null || :
   c=$(cost "$out")
-  fael run end "$R" ${c:+--cost "$c"}
+  ends=$(fael run end "$R" ${c:+--cost "$c"})
+  echo "$ends"
+  # fael prints outside lines only when a path left the scope: say the clean case too
+  case $ends in *"outside, "*) ;; *) echo "outside: none" ;; esac
   git switch -q --detach
   # ponytail: a pair's wait or note may sit on its other uid; read both if pairs crash here
   j=$(fael chunk show "$uid" --json)
@@ -143,13 +150,17 @@ review)
     [ "$s" = S ] || model=opus
   done
   git switch -q --detach "$set"
+  S0=$(git rev-parse HEAD)
   prompt=$logs/review-s$n.md
-  echo "/fael-review high --fix $base...$set — spec per lane: fael chunk show <uid> ($lanes); a done criterion the diff leaves undone is a major. Commit each fix you make; record each finding you leave with fael add." >"$prompt"
+  echo "/fael-review high --fix $base...$set — spec per lane: fael chunk show <uid> ($lanes); a done criterion the diff leaves undone is a major. Commit each fix you make on this detached HEAD, never on a branch; record each finding you leave with fael add." >"$prompt"
   echo "review $set · $model · session $sid · $wt"
   out=$logs/review-s$n-$sid.json
   rc=0; claude_p "$model" "$sid" "$prompt" "$out" || rc=$?
   c=$(cost "$out")
-  echo "review $set · $(usd "$c") · $(git rev-list --count "$set..HEAD") fix commits · HEAD $(git rev-parse --short HEAD)"
+  # a reviewer that switched onto s<n> moved it: count from where it started, and detach
+  git switch -q --detach 2>/dev/null || :
+  echo "review $set · $(usd "$c") · $(git rev-list --count "$S0..HEAD") fix commits · HEAD $(git rev-parse --short HEAD)"
+  jq -r '.result // empty' "$out" 2>/dev/null || :
   failed "$rc" "$out" && { echo "claude exit $rc · log: $out"; exit 2; }
   d=$(git status --porcelain | wc -l | tr -d ' ')
   [ "$d" = 0 ] || { echo "uncommitted: $d files the reviewer left in $wt"; exit 2; }
@@ -162,12 +173,15 @@ done)
   for t in $(git log --reverse --format='%(trailers:key=Fael-Chunk,valueonly,separator=)|%(trailers:key=Fael-Run,valueonly,separator=)' "origin/main..$K"); do
     u=${t%%|*} r=${t#*|}
     [ -n "$u" ] || continue # a review fix: no chunk of its own
+    fin='[.notes[] | select(startswith("finished:"))] | last // empty | ltrimstr("finished: ")'
+    lane=$(fael chunk show "$u" --json | jq -r "$fin")
+    # a pair is one lane, one run: each half is done on its own, its hand-off the lane's when it
+    # wrote none
     for c in $u $(fael chunk show "$u" --json | jq -r '.pair[]'); do
       j=$(fael chunk show "$c" --json)
       [ "$(echo "$j" | jq -r .state)" != done ] || { echo "$c already done"; continue; }
-      h=$(echo "$j" | jq -r '[.notes[] | select(startswith("finished:"))] | last // empty')
-      h=${h#finished: }
-      fael chunk done "$c" "${h:-landed in $st}" --pr "$pr" ${r:+--run "$r"}
+      h=$(echo "$j" | jq -r "$fin")
+      fael chunk done "$c" "${h:-${lane:-landed in $st}}" --pr "$pr" ${r:+--run "$r"}
     done
   done
   ;;
