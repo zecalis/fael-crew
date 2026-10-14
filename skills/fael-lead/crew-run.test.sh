@@ -40,6 +40,20 @@ esac; } >/dev/null # claude -p --output-format json prints the result only
 echo '{"total_cost_usd":0.25,"is_error":false,"result":"verdict: stub"}'
 EOF
 chmod +x "$T/bin/claude"
+cat >"$T/bin/opencode" <<'EOF'
+#!/bin/sh
+# stub: run prints opencode's json events (the message is argv's last), session export a cost
+[ "$1" = session ] && { echo '{"info":{"cost":0.5}}'; exit 0; }
+printf '%s\n' "$@" >"$STUB_DIR/oc-argv"; printf '%s' "$OPENCODE_CONFIG_CONTENT" >"$STUB_DIR/oc-config"
+{ case $STUB in
+finish) echo "$STUB_UID" >"$STUB_UID"; git add -A; git commit -qm wip
+  fael chunk note "$STUB_UID" "finished: $STUB_UID on opencode" ;;
+esac; } >/dev/null
+echo '{"type":"step_start","sessionID":"ses_x"}'
+[ "$STUB" != error ] || { echo '{"type":"error","sessionID":"ses_x","error":{"message":"no route"}}'; exit 1; }
+echo '{"type":"text","sessionID":"ses_x","part":{"text":"done"}}'
+EOF
+chmod +x "$T/bin/opencode"
 export PATH="$T/bin:$PATH"
 
 git init -q --bare "$T/origin.git"
@@ -81,6 +95,7 @@ has "Lead's rules:" "$T/stdin"
 has "fael chunk note $A" "$T/stdin"
 [ "$(show "$A" .run.ended)" != null ] || fail "run not ended"
 [ "$(show "$A" .run.cost)" = 0.25 ] || fail "cost not kept"
+[ "$(show "$A" .run.client)/$(show "$A" .run.model)" = claude/haiku ] || fail "run row lacks client or model"
 ! git -C "$T/wt-t-agent-1" symbolic-ref -q HEAD >/dev/null || fail "w1 still on the lane"
 
 # waited, then a resume on the same lane: a note without finished: is a crash, so is a failed
@@ -95,11 +110,32 @@ has "claude exit 3" "$T/out"
 STUB=error STUB_UID=$B expect 2 "$CR" work p 1 "$B" --in "$T/wt-t-agent-2"
 STUB=finish STUB_UID=$B expect 0 "$CR" work p 1 "$B" --in "$T/wt-t-agent-2"
 [ "$(git rev-list --count plan/p/s1..plan/p/lane/$B)" = 1 ] || fail "resume left the lane"
+# no --model: the approval's model, else the chunk's hint, reaches claude and the run row
+[ "$(show "$B" .run.model)" = haiku ] || fail "run row lacks the hint's model"
+has haiku "$T/argv"
 
 # beat: a slow worker is seen while it runs; started from outside the repo
 (cd / && STUB=slow STUB_UID=$D expect 0 "$CR" work p 1 "$D" --in "$T/wt-t-agent-3")
 [ "$(cat "$T/seen")" != null ] || fail "no beat while the worker ran"
 has "outside: none" "$T/out"
+
+# opencode: an opencode approval runs opencode in place of claude, under the same deny list,
+# and the run row keeps its client, model and the session export's cost
+O=$(add fo S)
+fael chunk approve "$O" --client opencode --model oc/m >/dev/null
+rm -f "$T/argv"
+STUB=finish STUB_UID=$O expect 0 "$CR" work p 1 "$O" --in "$T/wt-t-agent-3"
+has "· finished · \$0.50 · 1 commits" "$T/out"
+[ ! -e "$T/argv" ] || fail "an opencode lane ran claude"
+has "--standalone" "$T/oc-argv"
+has "oc/m" "$T/oc-argv"
+has "Lead's rules:" "$T/oc-argv"
+has '"git push *":"deny"' "$T/oc-config"
+has '".env*":"deny"' "$T/oc-config"
+[ "$(show "$O" .run.client)/$(show "$O" .run.model)/$(show "$O" .run.cost)" = opencode/oc/m/0.5 ] ||
+  fail "opencode run row: $(show "$O" .run)"
+STUB=error STUB_UID=$O expect 2 "$CR" work p 1 "$O" --in "$T/wt-t-agent-3"
+has "opencode exit 1" "$T/out"
 
 # fael refuses a chunk another run holds: back to G2, the worktree left detached
 git -C "$T/wt-t-agent-3" switch -q --detach
