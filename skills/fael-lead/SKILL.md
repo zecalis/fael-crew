@@ -5,8 +5,9 @@ description: Lead one project's dev work — read every plan's ready chunks in t
 
 # fael-lead — one project, one lead, one PR per stack
 
-**A set is a bet that these chunks do not touch each other.** You place it from facts, the
-owner approves it, the diff settles it, and fael keeps the result for the next bet.
+**A set is a bet that these chunks do not touch each other.** You place it from facts, the owner
+approves it, the diff settles it, fael keeps the result for the next bet. Chunks are `/fael-plan`'s
+cut (merge or split goes back there); yours are the files, each worker's own, so landing and review stay easy.
 
 Nine gates, in order. Each may end the set; a failed gate goes back to the gate it names,
 never forward. Local merges are yours; a GitHub PR merge is the owner's (decision
@@ -29,8 +30,6 @@ critical point (a contract, a migration, auth, money) — never a whole set.
    yet = 2 chunks whose scopes share nothing.
 4. **A rule needs a repeat.** A miss is a `lead:miss:<class>` issue, never a skill edit. The
    skill changes only when one class hit 2 sets, and the change never grows its line count.
-
-Carry them; do not recite them to the owner.
 
 ---
 
@@ -76,10 +75,10 @@ Take ready chunks in plan order. A chunk is **out** when a check fails and no fi
 | Order | an `after` between two picks | small → `pair` in the row (one worker, one run); big → the later waits |
 | Interface | two picks meet at a type, schema, table, CLI or JSON | a contract (below) before either starts; no contract, no parallel |
 | Room | a file in scope near the repo's line cap that the brief grows | widen scope to its folder in the row |
-| Question | one brief leaves a choice to the owner that another pick meets too | one Q for both |
+| Question | a brief leaves a choice to the owner | a Q in this table, its answer a `chunk note` — never a worker's wait |
 
 A mechanical fix rides in its row (`scope → x/ (near cap)`), so one `ok` takes it. A Q is only
-for an answer that changes the set: a breaking contract, an owner's choice two picks share.
+for an answer that changes the set or a brief: a breaking contract, an owner's choice.
 
 `project.shared` paths (docs, registries, goldens) are nobody's: never an overlap, their
 conflicts are yours at G5.
@@ -164,12 +163,12 @@ You learn a worker ended from your own process notification — never poll.
 - **Waited** → answer with `fael chunk answer <uid> "…"` only when the code, the ledger or a
   contract answers it; else the owner. Then G4.3 again (new `sid`, new `R`).
 - **Crashed** (no last note) → its commits and `fael chunk show` say where; restart or out.
-- **Finished** → `git diff --name-only plan/<project>/s<n>...<lane-branch>` against its scope.
-  A path outside it, not `project.shared`: read it; inside another open chunk's scope it is a
-  Q before it lands. Then, in a worktree whose worker exited, land it on the set branch in
-  plan order: `git rebase plan/<project>/s<n> <lane-branch>`, fast-forward the set branch, run the
-  gates (AGENTS.md) each by its exit code (127 = no tool), then `fael run end <R>`: the worktree is free for the next set, G7.4 still dones `--run R`.
-  - conflict in a `project.shared` file → resolve (lists keep both sides; goldens re-bless);
+- **Finished** → first `fael run end <R>` (fael claims the lane's diff before any rebase; the worktree
+  frees; G7.4 dones `--run R`), then `git diff --name-only plan/<project>/s<n>...<lane-branch>` against
+  its scope. A path outside it, not `project.shared`: read it; inside another open chunk's scope it is a
+  Q before it lands. Then, in a worktree whose worker exited, land it on the set branch in plan order:
+  `git rebase plan/<project>/s<n> <lane-branch>`, fast-forward the set branch, gates (AGENTS.md) each by its exit code (127 = no tool).
+  - conflict in a `project.shared` file → resolve (lists keep both sides; goldens re-bless), and `git diff --check` finds no marker left;
   - conflict in a file a lane owns, or gates fail on top of another lane → out, its note says
     why, and a `lead:miss` issue (G8).
 
@@ -236,5 +235,5 @@ next: <labels, why>
 misses: <classes>
 open Qs: <…>" \
   --title "lead <project>: set <n> stacked, next <labels>" --key lead:<project> \
-  --files <repo root> [--supersedes <last lead:<project> id>]
+  --files <paths the set touched> [--supersedes <last lead:<project> id>]
 ```

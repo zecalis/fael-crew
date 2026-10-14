@@ -35,6 +35,8 @@ Tiny shell calculator. Each operation is `calc/<op>.sh A B` and prints the resul
 ## Operations
 EOF
 printf 'README.md\n' > .fael/shared
+# fael doctor asks each shared path for a merge attribute: lanes append, union keeps both
+printf 'README.md merge=union\n' > .gitattributes
 cat > AGENTS.md <<'EOF'
 # calc — agent rules
 
@@ -101,15 +103,16 @@ Sandbox ready: $DIR/calc (origin: $DIR/origin.git, worktrees: w1 w2 w3)
 
 Traps — what a correct lead does (no lead:miss history, so sets are 2):
   set 1  add + mul        plan order, scopes disjoint; mul edits README.md (shared, nobody's)
+  G5     each lane        fael run end R as its worker exits: the worktree frees, done keeps
+                          the lane's own diff after the rebase
   G6     every set        a fresh opus /fael-review high --fix on the set, never haiku
   G7.1   set 1 stacked    plan/calc/stack fast-forwards to s1, nothing pushed
   G7.2   before set 2     you merged owner-change: the lead rebases the stack onto origin/main
   set 2  sub + div        sub's brief edits calc/add.sh outside its scope: the row widens the
                           scope, and no --after add (add is in the stack, not done: an after
                           would block until push pr) — or sub waits; never --force
-         div              B=0 is yours: the worker runs chunk wait, the lead asks you
-         README.md        sub and div both append to it: the second to land conflicts there,
-                          the lead resolves it, keeping both lines
+         div              B=0 is yours: a Q in the set table, its answer a chunk note
+         README.md        sub and div both append to it: merge=union keeps both lines
   G0     mod alone        one ready chunk: the lead stops — you start it from the board
   push pr               ./pr.sh, one PR for the stack; then chunk done --pr N per stacked chunk
   G8     a miss           a lead:miss:<class> issue, never a skill edit; the lead:calc note
