@@ -122,14 +122,16 @@ read: ask again. **No reply, no set.**
 
 ## G4 — Start
 
-1. Set branch from the latest base, no checkout switched: `git fetch origin`,
-   `git branch plan/<project>/s<n> plan/<project>/stack` (G7.1; the first set: `origin/main`).
+Branch moves: `crew-git` next to this file; `…` = `--gate "<AGENTS.md gates, &&>" --in <free worktree>`.
+
+1. Set branch from the latest base, no checkout switched: `crew-git sync <project> …` (G7.2),
+   then `git branch plan/<project>/s<n> plan/<project>/stack` (no stack yet: `origin/main`).
 2. Per lane, a worktree: a `worktrees[]` entry with `run: null` and no uncommitted work, highest
    number first; never the one the owner talks in. Never share `CARGO_TARGET_DIR`.
 3. Per lane, in that worktree — the worker's own session id, so fael binds the worker, not you:
 
    ```bash
-   git switch -c <lane-branch> plan/<project>/s<n>
+   git switch -c plan/<project>/lane/<uid> plan/<project>/s<n>
    sid=$(uuidgen | tr A-Z a-z)
    CLAUDE_CODE_SESSION_ID=$sid fael chunk start <uid> --model <m> > <scratch>/brief-<uid>.md
    ```
@@ -166,20 +168,20 @@ You learn a worker ended from your own process notification — never poll.
 - **Crashed** (no last note) → its commits and `fael chunk show` say where. Its run may still be
   live (a restart is refused `held`): `fael run end <R>`, then G4.3 again (new `sid`, new `R`) or out.
 - **Finished** → first `fael run end <R>` (fael claims the lane's diff before any rebase; the worktree
-  frees; G7.4 dones `--run R`), then `git diff --name-only plan/<project>/s<n>...<lane-branch>` against
+  frees; G7.4 dones `--run R`), then `git diff --name-only plan/<project>/s<n>...plan/<project>/lane/<uid>` against
   its scope. A path outside it, not `project.shared`: read it; inside another open chunk's scope it is a
-  Q before it lands. Then, in a worktree whose worker exited, land it on the set branch in plan order.
-  First squash the lane into one commit, because its WIP commits are resume checkpoints and don't belong in the PR. On `<lane-branch>`:
-  `git reset --soft $(git merge-base plan/<project>/s<n> HEAD)`, then `git commit -m "<chunk title>"` in the repo's commit style.
-  Then `git rebase plan/<project>/s<n> <lane-branch>`, fast-forward the set branch, gates (AGENTS.md) each by its exit code (127 = no tool).
-  - conflict in a `project.shared` file → resolve (lists keep both sides; goldens re-bless), and `git diff --check` finds no marker left;
+  Q before it lands. Then land it in plan order, `--in` a worktree whose worker exited:
+  `crew-git land <project> <n> <uid> -m "<chunk title>" …` squashes it (WIP commits are resume
+  checkpoints, not PR history) and moves the set only once the gates pass; a failure moves nothing.
+  - conflict in a `project.shared` file → in the lane's worktree `git rebase plan/<project>/s<n>`,
+    resolve (lists keep both sides; goldens re-bless), `git diff --check` finds no marker left, land again;
   - conflict in a file a lane owns, or gates fail on top of another lane → out, its note says
     why, and a `lead:miss` issue (G8).
 
 ## G6 — Review and fix
 
 Every set, no exception: the lead wrote the cut, so a fresh session judges the diff, and each
-lane's brief is its spec. In a worktree whose worker exited, on the set branch:
+lane's brief is its spec. In a worktree whose worker exited, `git switch --detach plan/<project>/s<n>`:
 
 ```bash
 sid=$(uuidgen | tr A-Z a-z)
@@ -189,18 +191,18 @@ echo "/fael-review high --fix plan/<project>/stack...plan/<project>/s<n> — spe
 ```
 
 It fixes the CONFIRMED blocker and major findings and records the rest to fael. Then you: a
-nit or PLAUSIBLE worth a commit, commit it; gates again, each by its exit code. A blocker it
+nit or PLAUSIBLE worth a commit, commit it there; G7.1 gates it. A blocker it
 could not fix → that lane out (G5), a `lead:miss:review` issue either way.
 
 ## G7 — Stack, and ship on the owner's word
 
-1. Merge the set into the local stack — yours to do, it is not a PR:
-   `plan/<project>/stack` (made from `origin/main` once), `git merge --ff-only
-   plan/<project>/s<n>` — the set was cut from the stack's tip, which no set moves. Gates. The next set branches from
-   the stack's tip at G4.1, not from `origin/main`: it does not wait on the owner.
-2. Before each set: `git fetch origin`; `origin/main` moved → rebase the stack onto it, gates.
+1. Stack the set — yours, not a PR: `crew-git stack <project> <n> …` `--in` the G6 worktree
+   fast-forwards the stack to its HEAD and deletes `s<n>` and each landed lane. The next set
+   branches from the stack's tip at G4.1: it does not wait on the owner.
+2. Before each set: `crew-git sync <project> …` replays the stack onto `origin/main`, minus what merged.
 3. **Ship** when the owner says `push pr` — or ask once when the stack holds ~10 chunks, a
-   breaking change, or the next set waits on a stacked chunk's `after`. Rebase onto `origin/main`, gates, push, one PR by the repo's `push pr` rules
+   breaking change, or the next set waits on a stacked chunk's `after`. `crew-git ship <project> …`
+   (sync, gates, a lease-guarded push), then one PR by the repo's `push pr` rules
    (Windows CI per AGENTS.md). Body per set: lanes (uid, hand-off), lanes out and why, the
    review's verdict, **Removed / Breaking** (deleted files, files that lost 50+ lines, any CLI,
    schema or URL key renamed or removed, with its lane), and **Merge danger**: one-way or two-way door · blast radius in a word.
