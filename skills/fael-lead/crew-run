@@ -14,6 +14,9 @@
 #       /fael-review high --fix of s<n> against the stack (origin/main for set 1), in <wt>
 #       detached at s<n>; sonnet when every lane is S, else opus; its fixes stay on <wt>'s HEAD,
 #       their paths outside the lanes' scopes said as work says them
+#   crew-run scope  <p> <uid>…
+#       G2's check: each path a chunk's brief names that its scope (its pair's too) and
+#       project.shared lack, as "unscoped <label>: <path>", or "unscoped: none"
 #   crew-run done   <p> --pr <N> [--in <wt>]
 #       after crew-git ship: fael chunk done --pr N --run R for each Fael-Chunk/Fael-Run trailer
 #       on origin/main..plan/<p>/stack (crew-git land wrote them) and its pair, the hand-off the
@@ -44,6 +47,7 @@ case $verb in
   work) [ $# -ge 2 ] || die 4 "work <p> <n> <uid> …"; n=$1 uid=$2; shift 2 ;;
   review) [ $# -ge 1 ] || die 4 "review <p> <n> …"; n=$1; shift ;;
   done) ;;
+  scope) [ $# -ge 1 ] || die 4 "scope <p> <uid>…"; uids=$*; set -- ;;
   *) die 4 "unknown verb: $verb" ;;
 esac
 case $n in *[!0-9]*) die 4 "bad set number: $n" ;; esac
@@ -57,7 +61,7 @@ while [ $# -gt 0 ]; do
   esac
   shift 2
 done
-[ "$verb" = done ] || [ -n "$wt" ] || die 4 "needs --in <worktree>"
+case $verb in done | scope) ;; *) [ -n "$wt" ] || die 4 "needs --in <worktree>" ;; esac
 [ "$verb" != review ] || [ -n "$lanes" ] || die 4 "review needs --lanes <uid,…>"
 [ "$verb" != done ] || case $pr in '' | *[!0-9]*) die 4 "done needs --pr <N>" ;; esac
 
@@ -70,7 +74,7 @@ if [ -n "$wt" ]; then
 fi
 logs=$(git rev-parse --path-format=absolute --git-common-dir)/crew-run
 mkdir -p "$logs"
-if [ "$verb" != done ]; then
+if [ "$verb" = work ] || [ "$verb" = review ]; then
   [ -z "$(git status --porcelain)" ] || die 4 "$wt has uncommitted work"
   set=plan/$p/s$n
   git rev-parse -q --verify "refs/heads/$set" >/dev/null || die 4 "no $set: cut it first (crew-git cut)"
@@ -89,6 +93,8 @@ cost() { jq -r '.total_cost_usd // empty' "$1" 2>/dev/null || :; }
 usd() { [ -n "$1" ] && printf '$%.2f' "$1" || echo '$?'; }
 failed() { [ "$1" != 0 ] || jq -e '.is_error == true' "$2" >/dev/null 2>&1; }
 sid=$(uuidgen | tr A-Z a-z)
+# under <path> <scope paths>: fael's prefix rule, a path equal to or below one of them
+under() { for d in $2; do case $1 in "$d" | "${d%/}"/*) return 0 ;; esac; done; return 1; }
 
 case $verb in
 work)
@@ -166,7 +172,6 @@ review)
   # (nor its pair) holds, project.shared aside, unowned or in another unfinished chunk
   decl=$(for u in $(echo "$lanes" | tr , ' '); do fael chunk show "$u" --json | jq -r '.uid, .pair[]'; done | tr '\n' ' ')
   scope=$(for u in $decl; do fael chunk show "$u" --json | jq -r '.scope[]'; done; cat .fael/shared 2>/dev/null || :)
-  under() { for d in $2; do case $1 in "$d" | "${d%/}"/*) return 0 ;; esac; done; return 1; }
   # ponytail: a chunk show per chunk whose scope covers the path; fine at a plan's size
   owner() {
     fael plan export --json | jq -r '.plan as $p | .chunks[] | "\(.uid) \($p)/\(.label // .uid) \(.scope | join(" "))"' |
@@ -191,6 +196,23 @@ review)
   failed "$rc" "$out" && { echo "claude exit $rc · log: $out"; exit 2; }
   d=$(git status --porcelain | wc -l | tr -d ' ')
   [ "$d" = 0 ] || { echo "uncommitted: $d files the reviewer left in $wt"; exit 2; }
+  ;;
+scope)
+  # a path the brief names is one fael's overlaps never see unless the scope lists it
+  # ponytail: a path-shaped word (e.g. a gates file the brief only reads) lists too
+  sh=$(cat "$(git rev-parse --show-toplevel)/.fael/shared" 2>/dev/null || :)
+  o=
+  for u in $uids; do
+    case $u in *[!A-Za-z0-9._-]*) die 4 "bad uid: $u" ;; esac
+    j=$(fael chunk show "$u" --json) || die 4 "no chunk $u"
+    sc=$(for c in $u $(echo "$j" | jq -r '.pair[]'); do fael chunk show "$c" --json | jq -r '.scope[]'; done)
+    for f in $(echo "$j" | jq -r '.brief // empty' | grep -oE '[A-Za-z_.][A-Za-z0-9_.-]*(/[A-Za-z0-9_.-]+)*\.[A-Za-z][A-Za-z0-9]*' | sort -u); do
+      under "$f" "$sc $sh" || o="${o}unscoped $(echo "$j" | jq -r '.label // .uid'): $f
+"
+    done
+  done
+  printf '%s' "${o:-unscoped: none
+}"
   ;;
 done)
   st=plan/$p/stack

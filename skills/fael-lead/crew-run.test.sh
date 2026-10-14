@@ -173,6 +173,16 @@ expect 1 "$CR" done p --pr 5 --in "$T/wt-t-agent-2"
 has "not 01M4XXXXXXXXXXXXXXXXXXXXXX" "$T/out"
 [ "$(show "$D" .state)" != done ] || fail "D done under a run it no longer holds"
 
+# scope: a path the brief names outside the scope (and project.shared) is listed; a label works
+S1=$(fael chunk add fs --plan sim --label fs --scope s/ --size S --brief "Write s/a.sh and s/b/c.sh, then edit lib/x.sh and README.md." 2>/dev/null | tail -1)
+mkdir -p .fael && echo README.md >.fael/shared
+expect 0 "$CR" scope p "$S1"
+has "unscoped fs: lib/x.sh" "$T/out"
+! grep -q "s/a.sh\|README.md" "$T/out" || fail "scope listed a path inside the scope or shared"
+expect 0 "$CR" scope p "$A"
+has "unscoped: none" "$T/out"
+rm .fael/shared
+
 # drift: every crew-git / crew-run verb SKILL.md calls (a command starts a backtick span) is one
 # the script takes
 for v in $(grep -oE '`crew-(git|run) [a-z]+' "$(dirname "$CR")/SKILL.md" | tr -d '`' | sort -u | tr ' ' :); do

@@ -60,7 +60,7 @@ fael board --json | jq '.running | length'
 ```
 
 Per ready chunk: `scope`, `blocked_by`, `pair`, `overlaps` (live runs and open PRs included),
-and `fael chunk show <uid>` for the paths its brief really edits. Per past set: the `touched`
+and `crew-run scope <project> <uids>`: each path a brief names that its scope lacks. Per past set: the `touched`
 of its chunks — two that share a path collided, whatever their scopes said. `--open` drops
 stacked chunks: they are the stack's `Fael-Chunk` trailers (`git log origin/main..plan/<project>/stack`),
 their `touched` in `fael chunk show <uid> --json`.
@@ -77,7 +77,8 @@ Take ready chunks in plan order. A chunk is **out** when a check fails and no fi
 | Check | Fails when | Fix |
 |---|---|---|
 | Known | `scope` empty | out this set; paths from the code (never the title) in its next row |
-| Disjoint | its scope, or a path its brief edits, meets another pick, a live run or an open PR; a changed pub item counts every caller (grep, tests included) | widen scope + `after` in the row, or out. A stacked chunk's paths are on the set branch already: widen scope, no `after` on it — that `after` holds the new chunk until the stacked one is done, at push pr (G7.4) |
+| Scoped | `crew-run scope` (G1) lists a path the brief edits | the scope lists it before the set: widen it in the row (the owner's `ok` sets it, `fael chunk edit --scope`) or back to `/fael-plan`; never left to the brief's prose |
+| Disjoint | its scope meets another pick, a live run or an open PR; a changed pub item counts every caller (grep, tests included) | widen scope + `after` in the row, or out. A stacked chunk's paths are on the set branch already: widen scope, no `after` on it — that `after` holds the new chunk until the stacked one is done, at push pr (G7.4) |
 | Order | an `after` between two picks | small → `pair` in the row (one worker, one run); big → the later waits |
 | Interface | two picks meet at a type, schema, table, CLI or JSON | a contract (below) before either starts; no contract, no parallel |
 | Room | a file in scope near the repo's line cap that the brief grows | widen scope to its folder in the row |
