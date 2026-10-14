@@ -168,8 +168,10 @@ You learn a worker ended from your own process notification — never poll.
 - **Finished** → first `fael run end <R>` (fael claims the lane's diff before any rebase; the worktree
   frees; G7.4 dones `--run R`), then `git diff --name-only plan/<project>/s<n>...<lane-branch>` against
   its scope. A path outside it, not `project.shared`: read it; inside another open chunk's scope it is a
-  Q before it lands. Then, in a worktree whose worker exited, land it on the set branch in plan order:
-  `git rebase plan/<project>/s<n> <lane-branch>`, fast-forward the set branch, gates (AGENTS.md) each by its exit code (127 = no tool).
+  Q before it lands. Then, in a worktree whose worker exited, land it on the set branch in plan order.
+  First squash the lane into one commit, because its WIP commits are resume checkpoints and don't belong in the PR. On `<lane-branch>`:
+  `git reset --soft $(git merge-base plan/<project>/s<n> HEAD)`, then `git commit -m "<chunk title>"` in the repo's commit style.
+  Then `git rebase plan/<project>/s<n> <lane-branch>`, fast-forward the set branch, gates (AGENTS.md) each by its exit code (127 = no tool).
   - conflict in a `project.shared` file → resolve (lists keep both sides; goldens re-bless), and `git diff --check` finds no marker left;
   - conflict in a file a lane owns, or gates fail on top of another lane → out, its note says
     why, and a `lead:miss` issue (G8).
