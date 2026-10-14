@@ -16,9 +16,10 @@ never forward. Local merges are yours; a GitHub PR merge is the owner's (decisio
 
 **Inside the gates you decide.** A commit that changes no behaviour (format, a typo, a test
 name) goes in without asking; a fix not worth it or barely possible is your call; subagents are
-yours to spawn. **Models:** workers take the chunk's hint, haiku included. A reviewer is opus;
-sonnet only for a set of S chunks; never haiku. **Effort:** high. Max only aimed at one named
-critical point (a contract, a migration, auth, money) — never a whole set.
+yours to spawn. **Models:** workers take the chunk's hint, haiku included, on the approval's
+client (opencode, else claude: crew-run picks). A reviewer is claude opus; sonnet only for a set
+of S chunks; never haiku. **Effort:** high. Max only aimed at one named critical point (a
+contract, a migration, auth, money) — never a whole set.
 
 ## The four principles
 
@@ -122,8 +123,8 @@ Reply: ok · ok 2 sonnet · ok Q1 b · no 3
 ```
 
 The reply is the approval, to the table you last showed: apply each Q first (`fael chunk edit`
-clears an approval), then `fael chunk approve <uid>` per approved row (`--model` only if
-re-modelled); echo what fael printed. A reply you cannot read: ask again. **No reply, no set.**
+clears an approval), then `fael chunk approve <uid>` per approved row (`--model`, `--client`
+only if the owner changed them); echo what fael printed. A reply you cannot read: ask again. **No reply, no set.**
 
 ## G4 — Start
 

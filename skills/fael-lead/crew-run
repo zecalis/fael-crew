@@ -1,5 +1,5 @@
 #!/bin/sh
-# crew-run — the lead's processes: one headless claude -p per call, in a free worktree, seen on
+# crew-run — the lead's processes: one headless claude -p (an opencode lane: opencode run) per call, in a free worktree, seen on
 # the board while it runs, its fael run ended once it exits. No state of its own: the session
 # and run ids live in fael, the PID is the lead's background task, logs under
 # <git-common-dir>/crew-run/ die with the wave. Run it from any cwd. It blocks until claude
@@ -9,7 +9,7 @@
 #       plan/<p>/lane/<uid> in <wt> (new from s<n>, or the lane as it is on a resume), fael chunk
 #       start under a fresh session id with the run's model and client (--model, else the
 #       approval's, else the chunk's hint; the approval's client, else claude), the brief + each
-#       contract + the lead's rules into claude -p,
+#       contract + the lead's rules into claude -p (or opencode run, for an opencode approval),
 #       fael run beat while it runs, fael run end with its cost (its outside lines) once it
 #       exits, then <wt> detached so the lane can go once it lands
 #   crew-run review <p> <n> --in <wt> --lanes <uid,…>
@@ -91,6 +91,24 @@ claude_p() {
     "Bash(git worktree remove *)" "Bash(gh pr merge *)" "Bash(printenv *)" \
     "Read(./.env*)" "Edit(./.env*)" <"$3" >"$4"
 }
+# opencode <model> <prompt file> <json out>: the same deny list, written as claude_p's json
+# (total_cost_usd, is_error, result) so the rest reads one shape. --standalone, else a
+# background service runs the worker without this env (FAEL_STATE_DIR) or the inline config;
+# stdin closed, else it waits on it; the cost from the session export, as a step's can read 0.
+opencode_p() {
+  rc=0
+  OPENCODE_CONFIG_CONTENT='{"permission":{"bash":{"git reset --hard *":"deny","git checkout -- *":"deny",
+"git restore *":"deny","git clean *":"deny","git stash *":"deny","git branch -D *":"deny","git push *":"deny",
+"git worktree remove *":"deny","gh pr merge *":"deny","printenv *":"deny"},
+"read":{".env*":"deny"},"edit":{".env*":"deny"}}}' \
+    opencode run --standalone --auto --format json ${1:+-m "$1"} "$(cat "$2")" </dev/null >"$3.jsonl" || rc=$?
+  os=$(jq -r '.sessionID // empty' "$3.jsonl" 2>/dev/null | head -1)
+  oc=$([ -z "$os" ] || opencode session export "$os" </dev/null 2>/dev/null | jq '.info.cost // empty' || :)
+  jq -s --argjson c "${oc:-null}" '{total_cost_usd: $c, is_error: any(.[]; .type == "error"),
+    result: ([.[] | select(.type == "text") | .part.text] | last // ""), session: (.[0].sessionID // null)}' \
+    "$3.jsonl" >"$3" 2>/dev/null || echo '{"is_error":true}' >"$3"
+  return $rc
+}
 cost() { jq -r '.total_cost_usd // empty' "$1" 2>/dev/null || :; }
 usd() { [ -n "$1" ] && printf '$%.2f' "$1" || echo '$?'; }
 failed() { [ "$1" != 0 ] || jq -e '.is_error == true' "$2" >/dev/null 2>&1; }
@@ -131,7 +149,10 @@ EOF
   trap 'kill $bp 2>/dev/null || :' EXIT
   out=$logs/$uid-$R.json
   rc=0
-  claude_p "$model" "$sid" "$brief" "$out" || rc=$?
+  case $client in
+    opencode) opencode_p "$model" "$brief" "$out" || rc=$? ;;
+    *) claude_p "$model" "$sid" "$brief" "$out" || rc=$? ;;
+  esac
   kill $bp 2>/dev/null || :
   wait $bp 2>/dev/null || :
   c=$(cost "$out")
