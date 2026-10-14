@@ -127,5 +127,27 @@ expect 0 "$CG" ship p --gate "$G" --in "$T/w1"
 git --git-dir="$T/origin.git" update-ref refs/heads/main refs/heads/plan/p/stack
 expect 0 "$CG" sync p --gate "$G" --in "$T/w1"
 [ "$(r plan/p/stack)" = none ] || fail "ff-merged stack not deleted"
+
+# GitHub squash-merges the pushed stack with an owner's tweak and deletes its head, while set 5
+# stacks on top: the gone head is the merge, so only set 5 replays, and the next ship's lease
+# expects no branch
+expect 0 "$CG" cut p 4 --in "$T/w1"
+mklane I plan/p/s4 'echo i > i'
+expect 0 "$CG" land p 4 I -m "i" --gate "$G" --in "$T/w1"
+git -C "$T/w1" switch -q --detach plan/p/s4
+expect 0 "$CG" stack p 4 --gate "$G" --in "$T/w1"
+expect 0 "$CG" ship p --gate "$G" --in "$T/w1"
+expect 0 "$CG" cut p 5 --in "$T/w1"
+mklane J plan/p/s5 'echo j > j'
+expect 0 "$CG" land p 5 J -m "j" --gate "$G" --in "$T/w1"
+git -C "$T/w1" switch -q --detach plan/p/s5
+expect 0 "$CG" stack p 5 --gate "$G" --in "$T/w1"
+(cd "$T/c" && git pull -q && git fetch -q origin plan/p/stack && git merge -q --squash FETCH_HEAD >/dev/null 2>&1 &&
+  echo 'i!' > i && git add i && git commit -qm "squash PR 3, owner's tweak" && git push -q origin main :plan/p/stack)
+expect 0 "$CG" sync p --gate "$G" --in "$T/w1"
+[ "$(git rev-list --count origin/main..plan/p/stack)" = 1 ] || fail "sync replayed the merged set 4"
+[ "$(git show plan/p/stack:i)" = 'i!' ] || fail "sync lost the owner's tweak"
+[ "$(r refs/remotes/origin/plan/p/stack)" = none ] || fail "stale origin/plan/p/stack kept"
+expect 0 "$CG" ship p --gate "$G" --in "$T/w1"
 expect 4 "$CG" nope p
 echo "crew-git: all pass"

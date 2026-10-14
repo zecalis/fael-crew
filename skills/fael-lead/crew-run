@@ -2,8 +2,8 @@
 # crew-run — the lead's processes: one headless claude -p per call, in a free worktree, seen on
 # the board while it runs, its fael run ended once it exits. No state of its own: the session
 # and run ids live in fael, the PID is the lead's background task, logs under
-# <git-common-dir>/crew-run/ die with the wave. Run it from any cwd, work and review in the
-# background: the exit is the lead's notification.
+# <git-common-dir>/crew-run/ die with the wave. Run it from any cwd. It blocks until claude
+# exits, often past a 10-minute foreground call, so the lead backgrounds it: the exit wakes it.
 #
 #   crew-run work   <p> <n> <uid> --in <wt> [--model m] [--contract <id>]…
 #       plan/<p>/lane/<uid> in <wt> (new from s<n>, or the lane as it is on a resume), fael chunk
@@ -12,11 +12,13 @@
 #       then <wt> detached so the lane can go once it lands
 #   crew-run review <p> <n> --in <wt> --lanes <uid,…>
 #       /fael-review high --fix of s<n> against the stack (origin/main for set 1), in <wt>
-#       detached at s<n>; sonnet when every lane is S, else opus; its fixes stay on <wt>'s HEAD
+#       detached at s<n>; sonnet when every lane is S, else opus; its fixes stay on <wt>'s HEAD,
+#       their paths outside the lanes' scopes said as work says them
 #   crew-run done   <p> --pr <N> [--in <wt>]
 #       after crew-git ship: fael chunk done --pr N --run R for each Fael-Chunk/Fael-Run trailer
 #       on origin/main..plan/<p>/stack (crew-git land wrote them) and its pair, the hand-off the
-#       lane's finished: note; chunks already done are skipped, so a rerun is safe
+#       lane's finished: note and its "kept <path>: <why>" notes; chunks already done are skipped,
+#       so a rerun is safe
 #
 # Exit, its own table (crew-git's 1 and 2 mean other things): 0 finished · 1 waited on the
 # owner · 2 crashed (claude failed, no new "finished:" note, or a reviewer left uncommitted
@@ -160,6 +162,31 @@ review)
   # a reviewer that switched onto s<n> moved it: count from where it started, and detach
   git switch -q --detach 2>/dev/null || :
   echo "review $set · $(usd "$c") · $(git rev-list --count "$S0..HEAD") fix commits · HEAD $(git rev-parse --short HEAD)"
+  # the fixes' scope check, in run end's words (fael's prefix rule): a path no lane of the set
+  # (nor its pair) holds, project.shared aside, unowned or in another unfinished chunk
+  decl=$(for u in $(echo "$lanes" | tr , ' '); do fael chunk show "$u" --json | jq -r '.uid, .pair[]'; done | tr '\n' ' ')
+  scope=$(for u in $decl; do fael chunk show "$u" --json | jq -r '.scope[]'; done; cat .fael/shared 2>/dev/null || :)
+  under() { for d in $2; do case $1 in "$d" | "${d%/}"/*) return 0 ;; esac; done; return 1; }
+  # ponytail: a chunk show per chunk whose scope covers the path; fine at a plan's size
+  owner() {
+    fael plan export --json | jq -r '.plan as $p | .chunks[] | "\(.uid) \($p)/\(.label // .uid) \(.scope | join(" "))"' |
+      while read -r u l s; do
+        case " $decl " in *" $u "*) continue ;; esac
+        under "$1" "$s" || continue
+        case $(fael chunk show "$u" --json | jq -r .state) in done | replaced | dropped) continue ;; esac
+        echo "$l"; break
+      done
+  }
+  o=
+  for f in $(git diff --name-only "$S0" HEAD); do
+    under "$f" "$scope" && continue
+    w=$(owner "$f")
+    w=${w:+in $w}
+    o="${o}outside, ${w:-unowned}: $f
+"
+  done
+  printf '%s' "${o:-outside: none
+}"
   jq -r '.result // empty' "$out" 2>/dev/null || :
   failed "$rc" "$out" && { echo "claude exit $rc · log: $out"; exit 2; }
   d=$(git status --porcelain | wc -l | tr -d ' ')
@@ -175,13 +202,15 @@ done)
     [ -n "$u" ] || continue # a review fix: no chunk of its own
     fin='[.notes[] | select(startswith("finished:"))] | last // empty | ltrimstr("finished: ")'
     lane=$(fael chunk show "$u" --json | jq -r "$fin")
+    # an unowned path the lead kept (G5) rides in the hand-off: kept <path>: <why>
+    kept=$(fael chunk show "$u" --json | jq -r '[.notes[] | select(startswith("kept "))] | join(" · ")')
     # a pair is one lane, one run: each half is done on its own, its hand-off the lane's when it
     # wrote none
     for c in $u $(fael chunk show "$u" --json | jq -r '.pair[]'); do
       j=$(fael chunk show "$c" --json)
       [ "$(echo "$j" | jq -r .state)" != done ] || { echo "$c already done"; continue; }
       h=$(echo "$j" | jq -r "$fin")
-      fael chunk done "$c" "${h:-${lane:-landed in $st}}" --pr "$pr" ${r:+--run "$r"}
+      fael chunk done "$c" "${h:-${lane:-landed in $st}}${kept:+ · $kept}" --pr "$pr" ${r:+--run "$r"}
     done
   done
   ;;

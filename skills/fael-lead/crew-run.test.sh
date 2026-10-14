@@ -34,7 +34,7 @@ error) echo '{"is_error":true}'; exit 0 ;;
 slow) sleep 3; fael chunk show "$STUB_UID" --json | jq -r '.run.last_seen' >"$STUB_DIR/seen"
   fael chunk note "$STUB_UID" "finished: slow" ;;
 fix) echo fix >>a; git commit -qam "review fix" ;;
-onset) git switch -q plan/p/s1; echo fix >>a; git commit -qam "review fix on s1" ;;
+onset) git switch -q plan/p/s1; mkdir -p e; echo fix >e/x; git add e; git commit -qm "review fix on s1" ;;
 dirty) echo junk >junk ;;
 esac; } >/dev/null # claude -p --output-format json prints the result only
 echo '{"total_cost_usd":0.25,"is_error":false,"result":"verdict: stub"}'
@@ -52,6 +52,7 @@ for w in w1 w2 w3; do git worktree add -q --detach "$T/$w" origin/main; done
 fael plan new sim "test" --area dev >/dev/null
 add() { fael chunk add "$1" --plan sim --label "$1" --scope "$1" --size "$2" --model haiku --brief "write $1" 2>/dev/null | tail -1; }
 A=$(add fa S) B=$(add fb S) C=$(add fc M) D=$(add fd S)
+fael chunk add fe --plan sim --label fe --scope e/ --size S --brief "write e/" >/dev/null 2>&1
 for u in $A $B $C $D; do fael chunk approve "$u" >/dev/null; done
 
 # refusals: no set yet, the main worktree (the owner's checkout, left as it was), a dirty one
@@ -113,12 +114,14 @@ STUB=fix expect 0 "$CR" review p 1 --in "$T/w1" --lanes "$A,$B"
 has sonnet "$T/argv"
 has "origin/main...plan/p/s1" "$T/stdin"
 has "1 fix commits" "$T/out"
+has "outside, unowned: a" "$T/out"
 has "verdict: stub" "$T/out"
 git -C "$T/w1" switch -q --detach plan/p/s1
 s=$(git rev-parse plan/p/s1)
 STUB=onset expect 0 "$CR" review p 1 --in "$T/w1" --lanes "$A,$C"
 has opus "$T/argv"
 has "1 fix commits" "$T/out"
+has "outside, in sim/fe: e/x" "$T/out"
 ! git -C "$T/w1" symbolic-ref -q HEAD >/dev/null || fail "review left w1 on a branch"
 git branch -f plan/p/s1 "$s" # the reviewer moved s1; put it back for the cases below
 git branch --no-track plan/p/stack origin/main
@@ -126,6 +129,7 @@ git -C "$T/w1" switch -q --detach plan/p/s1
 STUB=dirty expect 2 "$CR" review p 1 --in "$T/w1" --lanes "$A"
 has "plan/p/stack...plan/p/s1" "$T/stdin"
 has "uncommitted: 1 files the reviewer left" "$T/out"
+has "outside: none" "$T/out"
 expect 4 "$CR" nope p 1
 
 # done: the trailers crew-git land wrote, once origin holds the stack; a rerun skips
@@ -142,11 +146,13 @@ for u in $A $B $P; do expect 0 "$CG" land p 1 "$u" -m "lane $u" --run "$(show "$
 expect 0 "$CG" stack p 1 --gate true --in "$T/w2"
 expect 4 "$CR" done p --pr 5
 has "crew-git ship first" "$T/out"
+fael chunk note "$A" "kept x: the gate fails without it" >/dev/null
 expect 0 "$CG" ship p --gate true --in "$T/w2"
 (cd / && expect 0 "$CR" done p --pr 5 --in "$T/w2")
 for u in $A $B $P $Q; do [ "$(show "$u" .state)" = done ] || fail "$u not done"; done
 ! grep -q 'outside,' "$T/out" || fail "done repeated the outside lines run end printed"
-[ "$(show "$A" .handoff.text)" = "$A works" ] || fail "hand-off is not A's finished: note"
+[ "$(show "$A" .handoff.text)" = "$A works · kept x: the gate fails without it" ] ||
+  fail "hand-off is not A's finished: note and its kept note"
 [ "$(show "$Q" .handoff.text)" = "$P works" ] || fail "the pair's other half lost the lane's hand-off"
 [ "$(show "$D" .state)" != done ] || fail "D done without a trailer"
 expect 0 "$CR" done p --pr 5 --in "$T/w2"
