@@ -1,6 +1,7 @@
 ---
 name: fael-content
-description: Plan a month of on-brand posts — one post = one topic — from what the product ships and what users asked for. Soft grill (rounds of questions that decide the plan), then a plan where each chunk is one post with a brief a small image/video/copy agent can execute. Trigger on /fael-content (was /plan-with-marketing) and when the user asks to plan content, posts, marketing or a content calendar.
+description: Plan a month of on-brand posts — one post = one topic — from what the product ships and what users asked for. Soft grill (rounds of questions that decide the plan), then a plan where each chunk is one post with a brief a small image/video/copy agent can execute. Run by /fael-content only.
+disable-model-invocation: true
 ---
 
 # fael-content
