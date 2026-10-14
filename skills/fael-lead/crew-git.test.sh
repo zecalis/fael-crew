@@ -40,6 +40,8 @@ git -C "$T/w2" switch -q plan/p/lane/D # D stays checked out: stack must not del
 
 # land: squash, union on a shared list, conflict, gate failures, CAS, dirty worktree
 expect 0 "$CG" land p 1 A -m "add a" --gate "$G" --in "$T/w1"
+[ "$(r plan/p/lane/A)" = none ] || fail "landed lane/A not deleted"
+grep -q 'restore: git branch plan/p/lane/A ' "$T/out" || fail "no restore line"
 expect 0 "$CG" land p 1 B -m "add b" --gate "$G" --in "$T/w1"
 git show plan/p/s1:README | grep -qx a && git show plan/p/s1:README | grep -qx b || fail "union lost a line"
 [ "$(git rev-list --count origin/main..plan/p/s1)" = 2 ] || fail "a lane is not one commit"
@@ -69,7 +71,6 @@ expect 0 "$CG" stack p 1 --gate "$G" --in "$T/w1"
 [ "$(r plan/p/stack)" = "$(git -C "$T/w1" rev-parse HEAD)" ] || fail "stack not at w1 HEAD"
 for b in s1 lane/A lane/B lane/E; do [ "$(r "plan/p/$b")" = none ] || fail "$b not deleted"; done
 for b in lane/C lane/D; do [ "$(r "plan/p/$b")" != none ] || fail "$b deleted"; done
-grep -q 'restore: git branch plan/p/lane/A ' "$T/out" || fail "no restore line"
 
 # ship, then the owner squash-merges it while set 2 stacks on top
 expect 0 "$CG" ship p --gate "$G" --in "$T/w1"

@@ -1,0 +1,147 @@
+#!/bin/sh
+# crew-run — the lead's processes: one headless claude -p per call, in a free worktree, seen on
+# the board while it runs, its fael run ended once it exits. No state of its own: the session
+# and run ids live in fael, the PID is the lead's background task, logs under
+# <git-common-dir>/crew-run/ die with the wave. Run it in the background from any worktree of
+# the repo; the exit is the lead's notification.
+#
+#   crew-run work   <p> <n> <uid> --in <wt> [--model m] [--contract <id>]…
+#       plan/<p>/lane/<uid> in <wt> (new from s<n>, or the lane as it is on a resume), fael chunk
+#       start under a fresh session id, the brief + each contract + the lead's rules into
+#       claude -p, fael run beat while it runs, fael run end (its outside lines) once it exits,
+#       then <wt> detached so the lane can go once it lands
+#   crew-run review <p> <n> --in <wt> --lanes <uid,…>
+#       /fael-review high --fix of s<n> against the stack (origin/main for set 1), in <wt>
+#       detached at s<n>; sonnet when every lane is S, else opus; its fixes stay on <wt>'s HEAD
+#
+# Exit, its own table (crew-git's 1 and 2 mean other things): 0 finished · 1 waited on the
+# owner · 2 crashed (claude failed, no new "finished:" note, or a reviewer left uncommitted
+# work) · 4 refused (usage, missing ref, dirty or own worktree, fael refused the start)
+set -eu
+
+die() { c=$1; shift; echo "crew-run: $*" >&2; exit "$c"; }
+
+# the board calls a run stalled after 30 min unseen (fael board.rs); beat well inside that
+beat=${CREW_RUN_BEAT:-300}
+
+verb=${1:-}; p=${2:-}; n=${3:-}
+[ $# -ge 3 ] || die 4 "usage: see the head of $0"
+shift 3
+case $p in '' | *[!A-Za-z0-9._-]*) die 4 "bad project: $p" ;; esac
+case $n in '' | *[!0-9]*) die 4 "bad set number: $n" ;; esac
+uid=
+case $verb in
+  work) [ $# -ge 1 ] || die 4 "work <p> <n> <uid> …"; uid=$1; shift ;;
+  review) ;;
+  *) die 4 "unknown verb: $verb" ;;
+esac
+case $uid in *[!A-Za-z0-9]*) die 4 "bad uid: $uid" ;; esac
+wt= model= contracts= lanes=
+while [ $# -gt 0 ]; do
+  [ $# -ge 2 ] || die 4 "$1 needs a value"
+  case $1 in
+    --in) wt=$2 ;; --model) model=$2 ;; --contract) contracts="$contracts $2" ;; --lanes) lanes=$2 ;;
+    *) die 4 "unknown option: $1" ;;
+  esac
+  shift 2
+done
+[ -n "$wt" ] || die 4 "needs --in <worktree>"
+[ "$verb" != review ] || [ -n "$lanes" ] || die 4 "review needs --lanes <uid,…>"
+
+common() { git -C "${1:-.}" rev-parse --path-format=absolute --git-common-dir; }
+[ "$(common "$wt" 2>/dev/null)" = "$(common)" ] || die 4 "$wt is not a worktree of this repo"
+[ "$(git -C "$wt" rev-parse --show-toplevel)" != "$(git rev-parse --show-toplevel)" ] ||
+  die 4 "$wt is the worktree you run in; pass a free one"
+[ -z "$(git -C "$wt" status --porcelain)" ] || die 4 "$wt has uncommitted work"
+set=plan/$p/s$n
+git rev-parse -q --verify "refs/heads/$set" >/dev/null || die 4 "no $set: cut it first (G4.1)"
+logs=$(common)/crew-run
+mkdir -p "$logs"
+wt=$(cd "$wt" && pwd)
+cd "$wt"
+
+# claude <model> <sid> <prompt file> <json out>: headless, denied what destroys work no diff
+# shows (decision lead:worker-perms); the lead pushes and merges
+claude_p() {
+  claude -p --session-id "$2" ${1:+--model "$1"} --permission-mode auto --output-format json \
+    --disallowedTools "Bash(git reset --hard *)" "Bash(git checkout -- *)" "Bash(git restore *)" \
+    "Bash(git clean *)" "Bash(git stash *)" "Bash(git branch -D *)" "Bash(git push *)" \
+    "Bash(git worktree remove *)" "Bash(gh pr merge *)" "Bash(printenv *)" \
+    "Read(./.env*)" "Edit(./.env*)" <"$3" >"$4"
+}
+cost() { jq -r '.total_cost_usd // empty' "$1" 2>/dev/null || :; }
+usd() { [ -n "$1" ] && printf '$%.2f' "$1" || echo '$?'; }
+failed() { [ "$1" != 0 ] || jq -e '.is_error == true' "$2" >/dev/null 2>&1; }
+sid=$(uuidgen | tr A-Z a-z)
+
+case $verb in
+work)
+  lane=plan/$p/lane/$uid
+  if git rev-parse -q --verify "refs/heads/$lane" >/dev/null; then
+    git switch -q "$lane" || die 4 "cannot switch $wt to $lane (checked out elsewhere?)"
+  else
+    git switch -q -c "$lane" "$set" || die 4 "cannot create $lane in $wt"
+  fi
+  # notes carry no time: a note is this run's when it comes after the ones already there
+  before=$(fael chunk show "$uid" --json | jq '.notes | length')
+  brief=$logs/$uid.md
+  CLAUDE_CODE_SESSION_ID=$sid fael chunk start "$uid" ${model:+--model "$model"} >"$brief" || {
+    git switch -q --detach; die 4 "fael refused the start of $uid: a wrong cut, back to G2"; }
+  R=$(head -1 "$brief" | awk '{print $3}')
+  model=${model:-$(fael chunk show "$uid" --json | jq -r '.run.model // empty')}
+  for c in $contracts; do fael find "$c" --full; done >>"$brief"
+  cat >>"$brief" <<EOF
+
+Lead's rules: do not run fael chunk done or the check before it, do not push. Each step that
+passes: a WIP commit + fael chunk note $uid "<done; next>". Finished: a last note
+"finished: <what works, what the owner checks>" and exit. A question, a wrong contract, a
+needed env or secret: fael chunk wait $uid "<question>" --on owner and exit.
+EOF
+  echo "lane $uid · R $R · session $sid · $wt"
+  # ponytail: a killed loop's sleep lingers up to one beat, silent; kill the group if it matters
+  (while sleep "$beat"; do fael run beat "$R" || :; done) >/dev/null 2>&1 &
+  bp=$!
+  trap 'kill $bp 2>/dev/null || :' EXIT
+  out=$logs/$uid-$R.json
+  rc=0; claude_p "$model" "$sid" "$brief" "$out" || rc=$?
+  kill $bp 2>/dev/null || :
+  wait $bp 2>/dev/null || :
+  c=$(cost "$out")
+  fael run end "$R" ${c:+--cost "$c"}
+  git switch -q --detach
+  # ponytail: a pair's wait or note may sit on its other uid; read both if pairs crash here
+  j=$(fael chunk show "$uid" --json)
+  q=$(echo "$j" | jq -r '.wait.text // empty')
+  last=$(echo "$j" | jq -r --argjson b "$before" '.notes[$b:] | last // empty')
+  if [ -n "$q" ]; then state=waited x=1
+  elif ! failed "$rc" "$out" && [ "${last#finished:}" != "$last" ]; then state=finished x=0
+  else state=crashed x=2; fi
+  echo "lane $uid · R $R · $state · $(usd "$c") · $(git rev-list --count "$set..$lane") commits"
+  [ -z "$q" ] || echo "wait: $q"
+  [ -z "$last" ] || echo "last note: $last"
+  [ "$rc" = 0 ] || echo "claude exit $rc · log: $out"
+  d=$(git status --porcelain | wc -l | tr -d ' ')
+  [ "$d" = 0 ] || echo "uncommitted: $d files left in $wt"
+  exit $x
+  ;;
+review)
+  base=plan/$p/stack
+  git rev-parse -q --verify "refs/heads/$base" >/dev/null || base=origin/main
+  model=sonnet
+  for u in $(echo "$lanes" | tr , ' '); do
+    s=$(fael chunk show "$u" --json | jq -r .size) || die 4 "no chunk $u"
+    [ "$s" = S ] || model=opus
+  done
+  git switch -q --detach "$set"
+  prompt=$logs/review-s$n.md
+  echo "/fael-review high --fix $base...$set — spec per lane: fael chunk show <uid> ($lanes); a done criterion the diff leaves undone is a major. Commit each fix you make; record each finding you leave with fael add." >"$prompt"
+  echo "review $set · $model · session $sid · $wt"
+  out=$logs/review-s$n-$sid.json
+  rc=0; claude_p "$model" "$sid" "$prompt" "$out" || rc=$?
+  c=$(cost "$out")
+  echo "review $set · $(usd "$c") · $(git rev-list --count "$set..HEAD") fix commits · HEAD $(git rev-parse --short HEAD)"
+  failed "$rc" "$out" && { echo "claude exit $rc · log: $out"; exit 2; }
+  d=$(git status --porcelain | wc -l | tr -d ' ')
+  [ "$d" = 0 ] || { echo "uncommitted: $d files the reviewer left in $wt"; exit 2; }
+  ;;
+esac

@@ -5,7 +5,8 @@
 # worktree of the repo.
 #
 #   crew-git land  <p> <n> <uid> -m <title> --gate <cmd> --in <wt>
-#       squash plan/<p>/lane/<uid> into one commit on plan/<p>/s<n>
+#       squash plan/<p>/lane/<uid> into one commit on plan/<p>/s<n>, then delete the lane
+#       unless a worktree has it out
 #   crew-git stack <p> <n> --gate <cmd> --in <wt>
 #       fast-forward plan/<p>/stack to <wt>'s HEAD (s<n> plus review fixes), delete s<n>
 #   crew-git sync  <p> --gate <cmd> --in <wt>
@@ -161,7 +162,10 @@ land)
     die 1 "resolve in ${w:-a free worktree}: git rebase plan/$p/s$n, then land again"; }
   N=$(git commit-tree "$(echo "$out" | head -1)" -p "$S" -m "$msg")
   gate "$N"
-  tx "update $set $N $S"
+  # the squash is the lane now: containment alone misses one a later lane or fix touched again
+  [ -z "$(holder "$lane")" ] && del="delete $lane $L" || del=
+  tx "update $set $N $S
+$del"
   echo "landed lane/$uid on s$n: $(short "$S") -> $(short "$N")"
   ;;
 stack)
