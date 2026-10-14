@@ -163,7 +163,8 @@ You learn a worker ended from your own process notification — never poll.
 
 - **Waited** → answer with `fael chunk answer <uid> "…"` only when the code, the ledger or a
   contract answers it; else the owner. Then G4.3 again (new `sid`, new `R`).
-- **Crashed** (no last note) → its commits and `fael chunk show` say where; restart or out.
+- **Crashed** (no last note) → its commits and `fael chunk show` say where. Its run may still be
+  live (a restart is refused `held`): `fael run end <R>`, then G4.3 again (new `sid`, new `R`) or out.
 - **Finished** → first `fael run end <R>` (fael claims the lane's diff before any rebase; the worktree
   frees; G7.4 dones `--run R`), then `git diff --name-only plan/<project>/s<n>...<lane-branch>` against
   its scope. A path outside it, not `project.shared`: read it; inside another open chunk's scope it is a
