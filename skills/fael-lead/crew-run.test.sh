@@ -135,8 +135,9 @@ for u in $A $B; do [ "$(show "$u" .state)" = done ] || fail "$u not done"; done
 expect 0 "$CR" done p --pr 5 --in "$T/w2"
 has "$A already done" "$T/out"
 
-# drift: every crew-git / crew-run verb SKILL.md names is one the script takes
-for v in $(grep -oE 'crew-(git|run) [a-z]+' "$(dirname "$CR")/SKILL.md" | sort -u | tr ' ' :); do
+# drift: every crew-git / crew-run verb SKILL.md calls (a command starts a backtick span) is one
+# the script takes
+for v in $(grep -oE '`crew-(git|run) [a-z]+' "$(dirname "$CR")/SKILL.md" | tr -d '`' | sort -u | tr ' ' :); do
   ! "$(dirname "$CR")/${v%%:*}" "${v#*:}" p 1 x 2>&1 | grep -q 'unknown verb' ||
     fail "SKILL.md calls ${v%%:*} ${v#*:}, which the script does not take"
 done

@@ -106,12 +106,12 @@ One table, two lines a row, no uid, no header, no `—` column:
 
 ```
 1  schema-x   M opus     → agent-3   contract:x
-   fael-core/src/x.rs
+   fael-core/src/x.rs · first in plan order, its scope meets no other pick
 2  cli-x      S sonnet   → agent-2   pair #3
-   fael/src/x/ (near cap)
+   fael/src/x/ (near cap) · reads x only through contract:x
 ```
 
-`→` is the worktree it will run in (G4). Then each Q: `Q1 #2:` the problem in one line, one line
+Line two: scope, then G2's one line of why. `→` is the worktree it will run in (G4). Then each Q: `Q1 #2:` the problem in one line, one line
 per option, your pick as `(a)`. End with the one line:
 
 ```
@@ -125,74 +125,49 @@ read: ask again. **No reply, no set.**
 
 ## G4 — Start
 
-1. Set branch from the stack G0 synced, no checkout switched:
-   `git branch plan/<project>/s<n> plan/<project>/stack` (no stack yet: `origin/main`).
+`crew-run` next to this file runs one `claude -p` per call (fael ≥ 0.58.0). Start each `work`
+and `review` in the background: its exit is your notification — never poll.
+
+1. `crew-git cut <project> <n>`: the set branch at the stack G0 synced (no stack: `origin/main`).
 2. Per lane, a worktree: a `worktrees[]` entry with `run: null` and no uncommitted work, highest
-   number first; never the one the owner talks in. Never share `CARGO_TARGET_DIR`.
-3. Per lane, in that worktree — the worker's own session id, so fael binds the worker, not you:
-
-   ```bash
-   git switch -c plan/<project>/lane/<uid> plan/<project>/s<n>
-   sid=$(uuidgen | tr A-Z a-z)
-   CLAUDE_CODE_SESSION_ID=$sid fael chunk start <uid> --model <m> > <scratch>/brief-<uid>.md
-   ```
-
-   Refused → back to G2 (principle 2). The brief's first line names the run `R`. A pair: start
-   either uid, the brief carries both.
-4. Append to the brief the body of each contract the lane builds against that its `contracts:`
-   block does not list, then:
-
-   ```text
-   Lead's rules: do not run fael chunk done or the check before it, do not push. Each step that passes: a WIP commit +
-   fael chunk note <uid> "<done; next>". Finished: a last note "<what works, what the owner
-   checks>" and exit. A question, a wrong contract, a needed env or secret:
-   fael chunk wait <uid> "<question>" --on owner and exit.
-   ```
-
-5. Start it in the background from that worktree; fael already holds `$sid` as the run's
-   `session`, which the board opens:
-
-   ```bash
-   claude -p --session-id $sid --model <m> --permission-mode auto --disallowedTools \
-     "Bash(git reset --hard *)" "Bash(git checkout -- *)" "Bash(git restore *)" \
-     "Bash(git clean *)" "Bash(git stash *)" "Bash(git branch -D *)" "Bash(git push *)" \
-     "Bash(git worktree remove *)" "Bash(gh pr merge *)" "Bash(printenv *)" \
-     "Read(./.env*)" "Edit(./.env*)" < <scratch>/brief-<uid>.md
-   ```
+   number first; never the one the owner talks in (crew-run refuses only the main one). Never
+   share `CARGO_TARGET_DIR`.
+3. Per lane: `crew-run work <project> <n> <uid> --in <worktree> [--contract <id>]…`, one
+   `--contract` per contract the lane builds against that its brief's `contracts:` block does
+   not list; `--model` only if re-modelled. It starts the lane under the worker's own session
+   id, adds the lead's rules to the brief, denies what destroys unseen work, keeps the run seen,
+   ends it and frees the worktree. A pair: either uid, the brief carries both.
 
 ## G5 — Land
 
-You learn a worker ended from your own process notification — never poll.
+`crew-run work` ends in one line (`lane · R · state · cost · commits`) and its exit:
 
-- **Waited** → answer with `fael chunk answer <uid> "…"` only when the code, the ledger or a
-  contract answers it; else the owner. Then G4.3 again (new `sid`, new `R`).
-- **Crashed** (no last note) → its commits and `fael chunk show` say where. Its run may still be
-  live (a restart is refused `held`): `fael run end <R>`, then G4.3 again (new `sid`, new `R`) or out.
-- **Finished** → first `fael run end <R>` (fael claims the lane's diff before any rebase; the worktree
-  frees; G7.4 dones `--run R`), then `git diff --name-only plan/<project>/s<n>...plan/<project>/lane/<uid>` against
-  its scope. A path outside it, not `project.shared`: read it; inside another open chunk's scope it is a
-  Q before it lands. Then land it in plan order, `--in` a worktree whose worker exited:
-  `crew-git land <project> <n> <uid> -m "<chunk title>" …` squashes it (WIP commits are resume
-  checkpoints, not PR history) and moves the set only once the gates pass; a failure moves nothing.
-  - conflict in a `project.shared` file → in the lane's worktree `git rebase plan/<project>/s<n>`,
-    resolve (lists keep both sides; goldens re-bless), `git diff --check` finds no marker left, land again;
+- **4 refused** → `fael chunk start` said `blocked` or `held`: back to G2 (principle 2).
+- **1 waited** → answer with `fael chunk answer <uid> "…"` only when the code, the ledger or a
+  contract answers it; else the owner. Then `crew-run work` again: it resumes the lane.
+- **2 crashed** → its commits, `last note` and `uncommitted:` lines say where. `crew-run work`
+  again, or out.
+- **0 finished** → its `outside, in <plan>/<label>: <path>` and `outside, unowned: <path>` lines
+  are the scope check (`project.shared` excluded) — never diff it yourself. Unowned: read it;
+  in another open chunk: a Q before it lands. Then land it in plan order, `--in` a free worktree:
+  `crew-git land <project> <n> <uid> -m "<chunk title>" --run <R> …` squashes it (WIP commits
+  are resume checkpoints, not PR history) with its chunk and run as trailers (G7.4 reads them)
+  and moves the set only once the gates pass; a failure moves nothing.
+  - conflict in a `project.shared` file → in a free worktree `git switch plan/<project>/lane/<uid>`,
+    `git rebase plan/<project>/s<n>`, resolve (lists keep both sides; goldens re-bless),
+    `git diff --check` finds no marker left, land again;
   - conflict in a file a lane owns, or gates fail on top of another lane → out, its note says
     why, and a `lead:miss` issue (G8).
 
 ## G6 — Review and fix
 
 Every set, no exception: the lead wrote the cut, so a fresh session judges the diff, and each
-lane's brief is its spec. In a worktree whose worker exited, `git switch --detach plan/<project>/s<n>`:
+lane's brief is its spec. `crew-run review <project> <n> --in <free worktree> --lanes <landed uids>`
+runs `/fael-review high --fix` on the set against the stack (sonnet for an all-S set, else
+opus), its fixes committed on that worktree's HEAD, the rest recorded to fael. Exit 2: it
+failed or left uncommitted work — read it there.
 
-```bash
-sid=$(uuidgen | tr A-Z a-z)
-model=opus   # sonnet when every lane in the set is S (the size column of G3); never haiku
-echo "/fael-review high --fix plan/<project>/stack...plan/<project>/s<n> (no stack yet: origin/main...) — spec per lane: fael chunk show <uid> (<uids>); a done criterion the diff leaves undone is a major" |   # stdin, as G4.5
-  claude -p --session-id $sid --model $model --permission-mode auto <same --disallowedTools as G4>
-```
-
-It fixes the CONFIRMED blocker and major findings and records the rest to fael. Then you: a
-nit or PLAUSIBLE worth a commit, commit it there; G7.1 gates it. A blocker it
+Then you: a nit or PLAUSIBLE worth a commit, commit it there; G7.1 gates it. A blocker it
 could not fix → that lane out (G5), a `lead:miss:review` issue either way.
 
 ## G7 — Stack, and ship on the owner's word
@@ -207,8 +182,9 @@ could not fix → that lane out (G5), a `lead:miss:review` issue either way.
    (Windows CI per AGENTS.md). Body per set: lanes (uid, hand-off), lanes out and why, the
    review's verdict, **Removed / Breaking** (deleted files, files that lost 50+ lines, any CLI,
    schema or URL key renamed or removed, with its lane), and **Merge danger**: one-way or two-way door · blast radius in a word.
-4. Then per stacked chunk: `fael chunk done <uid> "<hand-off>" --pr <N> --run <R>`; a lane out:
-   `fael run end <R>`. The PR's merge on GitHub is the owner's, always.
+4. Then `crew-run done <project> --pr <N>`: it dones every chunk the stack's trailers name, its
+   hand-off the lane's `finished:` note; a rerun skips what is done. The PR's merge on GitHub
+   is the owner's, always.
 
 ## G8 — Learn, then hand back
 
@@ -219,8 +195,8 @@ fael add issue "<what happened, the set, the repro>" --title "<one line>" \
   --key lead:miss:<leak|collision|contract|refused|gate-on-top|review> --files <a,b>
 ```
 
-Then compare what each lane really changed (`git diff --name-only` per lane at G5; `touched`
-in the board JSON once done): a shared path no scope predicted is a `collision` miss too. A
+Then compare what each lane really changed (its `outside` lines at G5; `touched` in the board
+JSON once done): a shared path no scope predicted is a `collision` miss too. A
 class now at 2 sets → a Q to the owner naming the gate that should have caught it: a check (script,
 gate, CI) when the miss is mechanical, else a skill change that removes as many lines as it adds.
 
@@ -238,7 +214,6 @@ Last, the row the next lead resumes from (G1) — the one point to `/clear` or c
 
 ```bash
 fael add note "set <n>: stacked, in <labels>, out <labels>
-not pushed: <uid> per stacked chunk (G7.4 dones them; R is its .run.id in fael board --json)
 next: <labels, why>
 misses: <classes>
 open Qs: <…>" \
