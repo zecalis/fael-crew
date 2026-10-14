@@ -126,5 +126,6 @@ Run:  cd $DIR/calc && ../sandbox.sh claude   then   /fael-lead calc
 You play the owner: answer each set table ( ok · ok 2 sonnet · ok Q1 b · no 3 ), answer div's
 B=0, and say "push pr" when you want the stack shipped.
   merge another PR (after set 1):  git -C $DIR/origin.git update-ref refs/heads/main refs/heads/owner-change
-  merge the stack's PR:            git -C $DIR/origin.git update-ref refs/heads/main refs/heads/plan/calc/stack
+  merge the stack's PR (GitHub deletes the head, so this does too):
+    git -C $DIR/origin.git update-ref refs/heads/main refs/heads/plan/calc/stack && git -C $DIR/origin.git update-ref -d refs/heads/plan/calc/stack
 EOF

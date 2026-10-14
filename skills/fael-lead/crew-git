@@ -13,7 +13,8 @@
 #   crew-git stack <p> <n> --gate <cmd> --in <wt>
 #       fast-forward plan/<p>/stack to <wt>'s HEAD (s<n> plus review fixes), delete s<n>
 #   crew-git sync  <p> --gate <cmd> --in <wt>
-#       fetch; replay the stack onto origin/main minus what already merged (squash merges too);
+#       fetch; replay the stack onto origin/main minus what already merged (squash merges too,
+#       and a pushed stack origin deleted, as GitHub does on merge);
 #       refuses while a plan/<p>/s<n> exists, since a replay would strand it
 #   crew-git ship  <p> --gate <cmd> --in <wt>
 #       sync, then push the stack with a lease; the PR stays the lead's
@@ -136,6 +137,14 @@ sync_stack() {
   git fetch -q --no-prune origin
   M=$(sha refs/remotes/origin/main) || die 4 "no origin/main"
   st=$R/stack
+  # GitHub deletes a merged PR's head (delete_branch_on_merge): a pushed stack origin no longer
+  # holds was merged. Its stale ref goes too, or ship's lease expects a branch that is gone.
+  # ponytail: a PR closed unmerged and deleted by hand reads the same; drop prints restore lines
+  gone=$(sha "refs/remotes/origin/plan/$p/stack") || gone=
+  if [ -n "$gone" ]; then
+    on=$(git ls-remote origin "refs/heads/plan/$p/stack")
+    [ -z "$on" ] && git update-ref -d "refs/remotes/origin/plan/$p/stack" "$gone" || gone=
+  fi
   K=$(sha $st) || { tx "$(lanes "$M")"; echo "no stack"; return; }
   [ -z "$(holder $st)" ] || die 4 "plan/$p/stack is checked out in $(holder $st)"
   drop() { tx "delete $st $K
@@ -146,9 +155,9 @@ $(lanes "$M")"; echo "stack merged into origin/main"; }
   sets=$(git for-each-ref --format='%(refname:short)' "$R/s[0-9]*")
   [ -z "$sets" ] || die 4 "origin/main moved and the stack needs a replay, but $sets branched from it; stack or drop that set first"
   base=$(git merge-base "$K" "$M")
-  # the pushed stack, once merged (a squash too), is where the replay starts
-  P=$(sha "refs/remotes/origin/plan/$p/stack") &&
-    git merge-base --is-ancestor "$P" "$K" && merged "$P" "$M" && base=$P
+  # the pushed stack, once merged (a squash too, or gone from origin), is where the replay starts
+  P=$(sha "refs/remotes/origin/plan/$p/stack") || P=$gone
+  [ -n "$P" ] && git merge-base --is-ancestor "$P" "$K" && { [ -n "$gone" ] || merged "$P" "$M"; } && base=$P
   [ -z "$(git rev-list --merges "$base..$K")" ] || die 4 "plan/$p/stack holds a merge commit"
   new=$M
   for c in $(git rev-list --reverse "$base..$K"); do new=$(pick "$new" "$c") || exit 1; done
