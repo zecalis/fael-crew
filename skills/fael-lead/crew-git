@@ -24,7 +24,7 @@
 #
 # Exit: 0 ok · 1 conflict, files printed, nothing moved · 2 gate failed, its exit printed
 # (127 = no tool) · 3 a ref moved under us, nothing changed · 4 refused (usage, git < 2.54,
-# missing ref, dirty or held worktree, not a fast-forward)
+# missing ref, dirty, held or main worktree, not a fast-forward)
 set -eu
 
 die() { c=$1; shift; echo "crew-git: $*" >&2; exit "$c"; }
@@ -59,6 +59,9 @@ case $uid$run in *[!A-Za-z0-9]*) die 4 "bad uid or run: $uid $run" ;; esac
 common() { git -C "${1:-.}" rev-parse --path-format=absolute --git-common-dir; }
 if [ -n "$wt" ]; then
   wt=$(git -C "$wt" rev-parse --show-toplevel 2>/dev/null) || die 4 "$wt is not a git worktree"
+  # the main worktree is the owner's checkout: never a lane's, whatever its state
+  [ "$wt" != "$(git -C "$wt" worktree list --porcelain | sed -n '1s/^worktree //p')" ] ||
+    die 4 "$wt is the main worktree, the owner's checkout; pick a lane worktree (G4.2)"
   [ -z "$(git -C "$wt" status --porcelain)" ] || die 4 "$wt has uncommitted work"
   # run from <wt>'s repo, never from <wt> itself: the gate moves its checkout
   [ "$(common 2>/dev/null)" = "$(common "$wt")" ] && [ "$(git rev-parse --show-toplevel 2>/dev/null)" != "$wt" ] ||

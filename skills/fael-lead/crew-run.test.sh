@@ -53,10 +53,15 @@ add() { fael chunk add "$1" --plan sim --label "$1" --scope "$1" --size "$2" --m
 A=$(add fa S) B=$(add fb S) C=$(add fc M) D=$(add fd S)
 for u in $A $B $C $D; do fael chunk approve "$u" >/dev/null; done
 
-# refusals: no set yet, a dirty worktree
+# refusals: no set yet, the main worktree (the owner's checkout, left as it was), a dirty one
 expect 4 "$CR" work p 1 "$A" --in "$T/w1"
 has "no plan/p/s1" "$T/out"
 git branch --no-track plan/p/s1 origin/main
+h=$(git symbolic-ref HEAD)
+expect 4 "$CR" work p 1 "$A" --in "$T/repo"
+has "the main worktree" "$T/out"
+[ "$(git symbolic-ref HEAD)" = "$h" ] && [ -z "$(git branch --list "plan/p/lane/$A")" ] ||
+  fail "work moved the main worktree"
 touch "$T/w1/junk"
 expect 4 "$CR" work p 1 "$A" --in "$T/w1"
 rm "$T/w1/junk"

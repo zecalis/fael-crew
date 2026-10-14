@@ -66,6 +66,8 @@ touch "$T/w1/junk"
 expect 4 "$CG" land p 1 D -m "d" --gate "$G" --in "$T/w1"
 rm "$T/w1/junk"
 expect 4 "$CG" land p 1 D -m "d" --run 'R 1' --gate "$G" --in "$T/w1"
+expect 4 "$CG" land p 1 D -m "d" --gate "$G" --in "$T/repo"
+grep -q 'the main worktree' "$T/out" || fail "main worktree not refused"
 # any cwd: from --in itself, then from outside the repo
 (cd "$T/w1" && expect 0 "$CG" land p 1 D -m "d" --run R1 --gate "$G" --in "$T/w1")
 [ "$(git log -1 --format='%(trailers:key=Fael-Chunk,valueonly,separator=)|%(trailers:key=Fael-Run,valueonly,separator=)' plan/p/s1)" = 'D|R1' ] ||
