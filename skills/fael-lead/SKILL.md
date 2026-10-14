@@ -61,7 +61,9 @@ fael board --json | jq '.running | length'
 
 Per ready chunk: `scope`, `blocked_by`, `pair`, `overlaps` (live runs and open PRs included),
 and `fael chunk show <uid>` for the paths its brief really edits. Per past set: the `touched`
-of its chunks — two that share a path collided, whatever their scopes said.
+of its chunks — two that share a path collided, whatever their scopes said. `--open` drops
+stacked chunks: they are the stack's `Fael-Chunk` trailers (`git log origin/main..plan/<project>/stack`),
+their `touched` in `fael chunk show <uid> --json`.
 
 `running` (every project) ≥ 6 → stop; the machine is full.
 
@@ -164,8 +166,8 @@ and `review` in the background: its exit is your notification — never poll.
 Every set, no exception: the lead wrote the cut, so a fresh session judges the diff, and each
 lane's brief is its spec. `crew-run review <project> <n> --in <free worktree> --lanes <landed uids>`
 runs `/fael-review high --fix` on the set against the stack (sonnet for an all-S set, else
-opus), its fixes committed on that worktree's HEAD, the rest recorded to fael. Exit 2: it
-failed or left uncommitted work — read it there.
+opus), its fixes committed on that worktree's HEAD, the rest recorded to fael; its last lines
+are the verdict G8 hands back. Exit 2: it failed or left uncommitted work — read it there.
 
 Then you: a nit or PLAUSIBLE worth a commit, commit it there; G7.1 gates it. A blocker it
 could not fix → that lane out (G5), a `lead:miss:review` issue either way.
@@ -183,8 +185,8 @@ could not fix → that lane out (G5), a `lead:miss:review` issue either way.
    review's verdict, **Removed / Breaking** (deleted files, files that lost 50+ lines, any CLI,
    schema or URL key renamed or removed, with its lane), and **Merge danger**: one-way or two-way door · blast radius in a word.
 4. Then `crew-run done <project> --pr <N>`: it dones every chunk the stack's trailers name, its
-   hand-off the lane's `finished:` note; a rerun skips what is done. The PR's merge on GitHub
-   is the owner's, always.
+   hand-off the lane's `finished:` note; a rerun skips what is done. Then re-file the G8 note
+   with `stack: PR <N>`. The PR's merge on GitHub is the owner's, always.
 
 ## G8 — Learn, then hand back
 
@@ -207,10 +209,12 @@ set <n> stacked · in: <labels> · out: <label — why> · review: <verdict>
 stack: <k> sets, <m> chunks, not pushed      (or: PR <N>)
 check before merge: ≤3 things the owner tries by hand
 breaking: <what, who calls it>        (only when there is one)
-next set: <labels> — a proposal, not started
+next set: <labels> — a proposal, not started      (or: none — <why>)
 ```
 
-Last, the row the next lead resumes from (G1) — the one point to `/clear` or compact; mid-set, a live lane lives only in this context:
+Last, the row the next lead resumes from (G1) — the one point to `/clear` or compact; mid-set, a
+live lane lives only in this context. Re-file it at a G0 stop too. `--files` warns on a path only
+the stack holds yet: expected.
 
 ```bash
 fael add note "set <n>: stacked, in <labels>, out <labels>

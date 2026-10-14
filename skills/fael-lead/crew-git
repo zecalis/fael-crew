@@ -154,6 +154,7 @@ $(lanes "$M")"; echo "stack merged into origin/main"; }
   for c in $(git rev-list --reverse "$base..$K"); do new=$(pick "$new" "$c") || exit 1; done
   [ "$new" != "$M" ] || { drop; return; }
   gate "$new"
+  gated=$new
   tx "update $st $new $K
 $(lanes "$new")"
   echo "stack $(short "$K") -> $(short "$new") on origin/main $(short "$M")"
@@ -205,8 +206,11 @@ cut)
   ;;
 sync) sync_stack ;;
 ship)
+  gated=
   sync_stack
   K=$(sha "$R/stack") || die 4 "nothing to ship"
+  # a stack already on origin/main was not replayed, so sync gated nothing
+  [ "$gated" = "$K" ] || gate "$K"
   P=$(sha "refs/remotes/origin/plan/$p/stack") || P=
   git push -q --force-with-lease="refs/heads/plan/$p/stack:$P" origin "$K:refs/heads/plan/$p/stack" ||
     die 3 "origin's plan/$p/stack moved since the fetch; nothing pushed"

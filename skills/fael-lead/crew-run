@@ -121,7 +121,10 @@ EOF
   kill $bp 2>/dev/null || :
   wait $bp 2>/dev/null || :
   c=$(cost "$out")
-  fael run end "$R" ${c:+--cost "$c"}
+  ends=$(fael run end "$R" ${c:+--cost "$c"})
+  echo "$ends"
+  # fael prints outside lines only when a path left the scope: say the clean case too
+  case $ends in *"outside, "*) ;; *) echo "outside: none" ;; esac
   git switch -q --detach
   # ponytail: a pair's wait or note may sit on its other uid; read both if pairs crash here
   j=$(fael chunk show "$uid" --json)
@@ -147,13 +150,17 @@ review)
     [ "$s" = S ] || model=opus
   done
   git switch -q --detach "$set"
+  S0=$(git rev-parse HEAD)
   prompt=$logs/review-s$n.md
-  echo "/fael-review high --fix $base...$set — spec per lane: fael chunk show <uid> ($lanes); a done criterion the diff leaves undone is a major. Commit each fix you make; record each finding you leave with fael add." >"$prompt"
+  echo "/fael-review high --fix $base...$set — spec per lane: fael chunk show <uid> ($lanes); a done criterion the diff leaves undone is a major. Commit each fix you make on this detached HEAD, never on a branch; record each finding you leave with fael add." >"$prompt"
   echo "review $set · $model · session $sid · $wt"
   out=$logs/review-s$n-$sid.json
   rc=0; claude_p "$model" "$sid" "$prompt" "$out" || rc=$?
   c=$(cost "$out")
-  echo "review $set · $(usd "$c") · $(git rev-list --count "$set..HEAD") fix commits · HEAD $(git rev-parse --short HEAD)"
+  # a reviewer that switched onto s<n> moved it: count from where it started, and detach
+  git switch -q --detach 2>/dev/null || :
+  echo "review $set · $(usd "$c") · $(git rev-list --count "$S0..HEAD") fix commits · HEAD $(git rev-parse --short HEAD)"
+  jq -r '.result // empty' "$out" 2>/dev/null || :
   failed "$rc" "$out" && { echo "claude exit $rc · log: $out"; exit 2; }
   d=$(git status --porcelain | wc -l | tr -d ' ')
   [ "$d" = 0 ] || { echo "uncommitted: $d files the reviewer left in $wt"; exit 2; }

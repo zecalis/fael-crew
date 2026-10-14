@@ -82,7 +82,9 @@ expect 0 "$CG" stack p 1 --gate "$G" --in "$T/w1"
 for b in s1 lane/A lane/B lane/E; do [ "$(r "plan/p/$b")" = none ] || fail "$b not deleted"; done
 for b in lane/C lane/D; do [ "$(r "plan/p/$b")" != none ] || fail "$b deleted"; done
 
-# ship, then the owner squash-merges it while set 2 stacks on top
+# ship gates even a stack sync did not replay, then the owner squash-merges it while set 2 stacks on top
+expect 2 "$CG" ship p --gate 'exit 5' --in "$T/w1"
+git --git-dir="$T/origin.git" rev-parse -q --verify plan/p/stack >/dev/null && fail "a failed gate pushed"
 expect 0 "$CG" ship p --gate "$G" --in "$T/w1"
 [ "$(git --git-dir="$T/origin.git" rev-parse plan/p/stack)" = "$(r plan/p/stack)" ] || fail "not pushed"
 expect 0 "$CG" cut p 2 --in "$T/w1"

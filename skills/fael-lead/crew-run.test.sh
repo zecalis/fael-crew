@@ -34,9 +34,10 @@ error) echo '{"is_error":true}'; exit 0 ;;
 slow) sleep 3; fael chunk show "$STUB_UID" --json | jq -r '.run.last_seen' >"$STUB_DIR/seen"
   fael chunk note "$STUB_UID" "finished: slow" ;;
 fix) echo fix >>a; git commit -qam "review fix" ;;
+onset) git switch -q plan/p/s1; echo fix >>a; git commit -qam "review fix on s1" ;;
 dirty) echo junk >junk ;;
 esac; } >/dev/null # claude -p --output-format json prints the result only
-echo '{"total_cost_usd":0.25,"is_error":false}'
+echo '{"total_cost_usd":0.25,"is_error":false,"result":"verdict: stub"}'
 EOF
 chmod +x "$T/bin/claude"
 export PATH="$T/bin:$PATH"
@@ -69,6 +70,7 @@ rm "$T/w1/junk"
 # finished: a commit, a finished: note, the run ended with its cost, the worktree detached
 STUB=finish STUB_UID=$A expect 0 "$CR" work p 1 "$A" --in "$T/w1" --model haiku
 has "· finished · \$0.25 · 1 commits" "$T/out"
+has "outside, unowned: $A" "$T/out"
 has "last note: finished: $A works" "$T/out"
 ! grep -q Terminated "$T/out" || fail "the beat loop's kill leaked a job message"
 has "Bash(git push *)" "$T/argv"
@@ -96,6 +98,7 @@ STUB=finish STUB_UID=$B expect 0 "$CR" work p 1 "$B" --in "$T/w2"
 # beat: a slow worker is seen while it runs; started from outside the repo
 (cd / && STUB=slow STUB_UID=$D expect 0 "$CR" work p 1 "$D" --in "$T/w3")
 [ "$(cat "$T/seen")" != null ] || fail "no beat while the worker ran"
+has "outside: none" "$T/out"
 
 # fael refuses a chunk another run holds: back to G2, the worktree left detached
 git -C "$T/w3" switch -q --detach
@@ -110,9 +113,14 @@ STUB=fix expect 0 "$CR" review p 1 --in "$T/w1" --lanes "$A,$B"
 has sonnet "$T/argv"
 has "origin/main...plan/p/s1" "$T/stdin"
 has "1 fix commits" "$T/out"
+has "verdict: stub" "$T/out"
 git -C "$T/w1" switch -q --detach plan/p/s1
-STUB=fix expect 0 "$CR" review p 1 --in "$T/w1" --lanes "$A,$C"
+s=$(git rev-parse plan/p/s1)
+STUB=onset expect 0 "$CR" review p 1 --in "$T/w1" --lanes "$A,$C"
 has opus "$T/argv"
+has "1 fix commits" "$T/out"
+! git -C "$T/w1" symbolic-ref -q HEAD >/dev/null || fail "review left w1 on a branch"
+git branch -f plan/p/s1 "$s" # the reviewer moved s1; put it back for the cases below
 git branch --no-track plan/p/stack origin/main
 git -C "$T/w1" switch -q --detach plan/p/s1
 STUB=dirty expect 2 "$CR" review p 1 --in "$T/w1" --lanes "$A"
