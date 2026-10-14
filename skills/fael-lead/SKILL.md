@@ -30,7 +30,7 @@ critical point (a contract, a migration, auth, money) — never a whole set.
 3. **Decide from facts.** Every pick cites a board field, a ledger row or a past set. No history
    yet = 2 chunks whose scopes share nothing.
 4. **A rule needs a repeat.** A miss is a `lead:miss:<class>` issue, never a skill edit. The
-   skill changes only when one class hit 2 sets, and the change never grows its line count.
+   skill changes only when one class hit 2 sets and no check can catch it; it never grows.
 
 ---
 
@@ -175,12 +175,12 @@ You learn a worker ended from your own process notification — never poll.
 
 ## G6 — Review and fix
 
-Every set, no exception: the lead wrote the cut, so a fresh session judges the diff. In a
-worktree whose worker exited, on the set branch:
+Every set, no exception: the lead wrote the cut, so a fresh session judges the diff, and each
+lane's brief is its spec. In a worktree whose worker exited, on the set branch:
 
 ```bash
 sid=$(uuidgen | tr A-Z a-z)
-echo "/fael-review high --fix plan/<project>/stack...plan/<project>/s<n>" |   # stdin, as G4.5
+echo "/fael-review high --fix plan/<project>/stack...plan/<project>/s<n> — spec per lane: fael chunk show <uid> (<uids>); a done criterion the diff leaves undone is a major" |   # stdin, as G4.5
   claude -p --session-id $sid --model opus --permission-mode auto <same --disallowedTools as G4>
 ```
 
@@ -198,8 +198,8 @@ could not fix → that lane out (G5), a `lead:miss:review` issue either way.
 3. **Ship** when the owner says `push pr` — or ask once when the stack holds ~10 chunks, a
    breaking change, or the next set waits on a stacked chunk's `after`. Rebase onto `origin/main`, gates, push, one PR by the repo's `push pr` rules
    (Windows CI per AGENTS.md). Body per set: lanes (uid, hand-off), lanes out and why, the
-   review's verdict, and **Removed / Breaking** (deleted files, files that lost 50+ lines, any
-   CLI, schema or URL key renamed or removed, with its lane).
+   review's verdict, **Removed / Breaking** (deleted files, files that lost 50+ lines, any CLI,
+   schema or URL key renamed or removed, with its lane), and **Merge danger**: one-way or two-way door · blast radius in a word.
 4. Then per stacked chunk: `fael chunk done <uid> "<hand-off>" --pr <N> --run <R>`; a lane out:
    `fael run end <R>`. The PR's merge on GitHub is the owner's, always.
 
@@ -214,8 +214,8 @@ fael add issue "<what happened, the set, the repro>" --title "<one line>" \
 
 Then compare what each lane really changed (`git diff --name-only` per lane at G5; `touched`
 in the board JSON once done): a shared path no scope predicted is a `collision` miss too. A
-class now at 2 sets → propose the skill change to the owner as a Q, naming the principle or
-gate that should have caught it; the change removes as many lines as it adds.
+class now at 2 sets → a Q to the owner naming the gate that should have caught it: a check (script,
+gate, CI) when the miss is mechanical, else a skill change that removes as many lines as it adds.
 
 Hand back in the owner's language, these lines only:
 
@@ -227,7 +227,7 @@ breaking: <what, who calls it>        (only when there is one)
 next set: <labels> — a proposal, not started
 ```
 
-Last, the row the next lead resumes from (G1):
+Last, the row the next lead resumes from (G1) — the one point to `/clear` or compact; mid-set, a live lane lives only in this context:
 
 ```bash
 fael add note "set <n>: stacked, in <labels>, out <labels>
