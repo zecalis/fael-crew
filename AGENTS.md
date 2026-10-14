@@ -76,4 +76,5 @@ before you use it on a real plan.
 - Use English in commits and PRs. PR titles follow Conventional Commits:
   `type(scope): summary`.
 - Never merge a PR. The owner reviews and merges.
-- Each agent works in its own worktree. Never switch branches in another agent's.
+- Each agent works in its own worktree, `wt-crew-agent-N` beside this checkout (fael's
+  `wt-<repo>-agent-N`; wt-sync never removes a `wt-*`). Never switch branches in another agent's.

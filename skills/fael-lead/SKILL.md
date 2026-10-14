@@ -107,9 +107,9 @@ Each pick gets one line of why. A pick you cannot justify in one line is out.
 One table, two lines a row, no uid, no header, no `—` column:
 
 ```
-1  schema-x   M opus     → agent-3   contract:x
+1  schema-x   M opus     → wt-fael-agent-3  contract:x
    fael-core/src/x.rs · first in plan order, its scope meets no other pick
-2  cli-x      S sonnet   → agent-2   pair #3
+2  cli-x      S sonnet   → wt-fael-agent-2  pair #3
    fael/src/x/ (near cap) · reads x only through contract:x
 ```
 
