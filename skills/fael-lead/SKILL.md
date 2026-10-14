@@ -140,7 +140,7 @@ read: ask again. **No reply, no set.**
    block does not list, then:
 
    ```text
-   Lead's rules: do not run fael chunk done, do not push. Each step that passes: a WIP commit +
+   Lead's rules: do not run fael chunk done or the check before it, do not push. Each step that passes: a WIP commit +
    fael chunk note <uid> "<done; next>". Finished: a last note "<what works, what the owner
    checks>" and exit. A question, a wrong contract, a needed env or secret:
    fael chunk wait <uid> "<question>" --on owner and exit.
