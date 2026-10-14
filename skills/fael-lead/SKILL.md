@@ -36,6 +36,9 @@ critical point (a contract, a migration, auth, money) — never a whole set.
 
 ## G0 — Is there a set?
 
+Branch moves: `crew-git` next to this file; `…` = `--gate "<AGENTS.md gates, &&>" --in <free worktree>`.
+First `crew-git sync <project> …` (G7.2), whatever the count below: it deletes a stack the owner merged.
+
 ```bash
 fael board --json --open | jq --arg r <repo root> '.projects[] | select(.root == $r)
   | [.plans[] | select(.area == "dev") | .name] as $dev
@@ -122,10 +125,8 @@ read: ask again. **No reply, no set.**
 
 ## G4 — Start
 
-Branch moves: `crew-git` next to this file; `…` = `--gate "<AGENTS.md gates, &&>" --in <free worktree>`.
-
-1. Set branch from the latest base, no checkout switched: `crew-git sync <project> …` (G7.2),
-   then `git branch plan/<project>/s<n> plan/<project>/stack` (no stack yet: `origin/main`).
+1. Set branch from the stack G0 synced, no checkout switched:
+   `git branch plan/<project>/s<n> plan/<project>/stack` (no stack yet: `origin/main`).
 2. Per lane, a worktree: a `worktrees[]` entry with `run: null` and no uncommitted work, highest
    number first; never the one the owner talks in. Never share `CARGO_TARGET_DIR`.
 3. Per lane, in that worktree — the worker's own session id, so fael binds the worker, not you:
@@ -199,7 +200,7 @@ could not fix → that lane out (G5), a `lead:miss:review` issue either way.
 1. Stack the set — yours, not a PR: `crew-git stack <project> <n> …` `--in` the G6 worktree
    fast-forwards the stack to its HEAD and deletes `s<n>` and each landed lane. The next set
    branches from the stack's tip at G4.1: it does not wait on the owner.
-2. Before each set: `crew-git sync <project> …` replays the stack onto `origin/main`, minus what merged.
+2. At G0: `crew-git sync <project> …` replays the stack onto `origin/main`, minus what merged.
 3. **Ship** when the owner says `push pr` — or ask once when the stack holds ~10 chunks, a
    breaking change, or the next set waits on a stacked chunk's `after`. `crew-git ship <project> …`
    (sync, gates, a lease-guarded push), then one PR by the repo's `push pr` rules
@@ -215,7 +216,7 @@ Each miss of this set is one issue, its class in the key:
 
 ```bash
 fael add issue "<what happened, the set, the repro>" --title "<one line>" \
-  --key lead:miss:<leak|collision|contract|refused|gate-on-top|review> --files <paths>
+  --key lead:miss:<leak|collision|contract|refused|gate-on-top|review> --files <a,b>
 ```
 
 Then compare what each lane really changed (`git diff --name-only` per lane at G5; `touched`
@@ -237,10 +238,10 @@ Last, the row the next lead resumes from (G1) — the one point to `/clear` or c
 
 ```bash
 fael add note "set <n>: stacked, in <labels>, out <labels>
-not pushed: <uid R> per stacked chunk (G7.4 dones them)
+not pushed: <uid> per stacked chunk (G7.4 dones them; R is its .run.id in fael board --json)
 next: <labels, why>
 misses: <classes>
 open Qs: <…>" \
   --title "lead <project>: set <n> stacked, next <labels>" --key lead:<project> \
-  --files <paths the set touched> [--supersedes <last lead:<project> id>]
+  --files <paths the set touched, a,b> [--supersedes <last lead:<project> id>]
 ```
