@@ -98,7 +98,7 @@ pick() {
 gate() {
   git -C "$wt" switch -q --detach "$1"
   rc=0; (cd "$wt" && sh -c "$gate") >"$log" 2>&1 || rc=$?
-  [ $rc = 0 ] && { echo "gate ok on $(short "$1")"; return; }
+  [ $rc = 0 ] && { echo "gate ok on $(short "$1") · $wt left detached there"; return; }
   tail -n 30 "$log" >&2
   [ $rc = 127 ] && rc="127 (no tool)"
   die 2 "gate exit $rc on $(short "$1"), nothing moved · full log: $log"
