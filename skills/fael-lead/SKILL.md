@@ -128,8 +128,7 @@ re-modelled); echo what fael printed. A reply you cannot read: ask again. **No r
 
 `crew-run` next to this file runs one `claude -p` per call (fael ≥ 0.58.0); all else runs in
 the foreground. A `crew-run` outlives Bash's 10-minute limit and lanes run together: start each
-with `run_in_background`; its exit wakes you with its output. A subagent lead is never woken:
-it waits on each with Monitor before it hands back. Never poll.
+with `run_in_background`; its exit wakes you, a subagent lead too, with its output. Never poll.
 
 1. `crew-git cut <project> <n>`: the set branch at the stack G0 synced (no stack: `origin/main`).
 2. Per lane, a worktree: a `worktrees[]` entry with `run: null` and no uncommitted work, highest
