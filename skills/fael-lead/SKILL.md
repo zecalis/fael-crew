@@ -187,7 +187,7 @@ lane's brief is its spec. In a worktree whose worker exited, `git switch --detac
 ```bash
 sid=$(uuidgen | tr A-Z a-z)
 model=opus   # sonnet when every lane in the set is S (the size column of G3); never haiku
-echo "/fael-review high --fix plan/<project>/stack...plan/<project>/s<n> — spec per lane: fael chunk show <uid> (<uids>); a done criterion the diff leaves undone is a major" |   # stdin, as G4.5
+echo "/fael-review high --fix plan/<project>/stack...plan/<project>/s<n> (no stack yet: origin/main...) — spec per lane: fael chunk show <uid> (<uids>); a done criterion the diff leaves undone is a major" |   # stdin, as G4.5
   claude -p --session-id $sid --model $model --permission-mode auto <same --disallowedTools as G4>
 ```
 
