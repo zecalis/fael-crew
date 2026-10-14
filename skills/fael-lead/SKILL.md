@@ -165,8 +165,9 @@ and `review` in the background: its exit is your notification — never poll.
 Every set, no exception: the lead wrote the cut, so a fresh session judges the diff, and each
 lane's brief is its spec. `crew-run review <project> <n> --in <free worktree> --lanes <landed uids>`
 runs `/fael-review high --fix` on the set against the stack (sonnet for an all-S set, else
-opus), its fixes committed on that worktree's HEAD, the rest recorded to fael; its last lines
-are the verdict G8 hands back. Exit 2: it failed or left uncommitted work — read it there.
+opus), its fixes committed on that worktree's HEAD, the rest recorded to fael. Its `outside`
+lines read as G5's (a kept note on a lane, a restore on that HEAD); its last lines are the
+verdict G8 hands back. Exit 2: it failed or left uncommitted work — read it there.
 
 Then you: a nit or PLAUSIBLE worth a commit, commit it there; G7.1 gates it. A blocker it
 could not fix → that lane out (G5), a `lead:miss:review` issue either way.
