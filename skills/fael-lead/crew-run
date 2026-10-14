@@ -110,7 +110,7 @@ work)
 
 Lead's rules: do not run fael chunk done or the check before it, do not push. Each step that
 passes: a WIP commit + fael chunk note $uid "<done; next>". Finished: a last note
-"finished: <what works, what the owner checks>" and exit. A question, a wrong contract, a
+"finished: <what works, what the owner checks>" (no branch: the lane lands squashed) and exit. A question, a wrong contract, a
 needed env or secret: fael chunk wait $uid "<question>" --on owner and exit.
 EOF
   echo "lane $uid · R $R · session $sid · $wt"
@@ -197,8 +197,9 @@ done)
   K=$(git rev-parse -q --verify "refs/heads/$st") || die 4 "no $st"
   [ "$(git rev-parse -q --verify "refs/remotes/origin/$st")" = "$K" ] ||
     die 4 "origin does not hold $st at its tip: crew-git ship first"
-  for t in $(git log --reverse --format='%(trailers:key=Fael-Chunk,valueonly,separator=)|%(trailers:key=Fael-Run,valueonly,separator=)' "origin/main..$K"); do
-    u=${t%%|*} r=${t#*|}
+  for t in $(git log --reverse --format='%(trailers:key=Fael-Chunk,valueonly,separator=)|%(trailers:key=Fael-Run,valueonly,separator=)|%h' "origin/main..$K"); do
+    u=${t%%|*} r=${t#*|} k=${t##*|}
+    r=${r%%|*}
     [ -n "$u" ] || continue # a review fix: no chunk of its own
     fin='[.notes[] | select(startswith("finished:"))] | last // empty | ltrimstr("finished: ")'
     lane=$(fael chunk show "$u" --json | jq -r "$fin")
@@ -210,7 +211,9 @@ done)
       j=$(fael chunk show "$c" --json)
       [ "$(echo "$j" | jq -r .state)" != done ] || { echo "$c already done"; continue; }
       h=$(echo "$j" | jq -r "$fin")
-      fael chunk done "$c" "${h:-${lane:-landed in $st}}${kept:+ · $kept}" --pr "$pr" ${r:+--run "$r"}
+      # the lane branch went at land: a note naming it points at its squash in the PR instead
+      h=$(echo "${h:-${lane:-landed in $st}}${kept:+ · $kept}" | sed "s#plan/$p/lane/$u#$k (PR $pr)#g")
+      fael chunk done "$c" "$h" --pr "$pr" ${r:+--run "$r"}
     done
   done
   ;;

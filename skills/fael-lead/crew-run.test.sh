@@ -147,12 +147,16 @@ expect 0 "$CG" stack p 1 --gate true --in "$T/wt-t-agent-2"
 expect 4 "$CR" done p --pr 5
 has "crew-git ship first" "$T/out"
 fael chunk note "$A" "kept x: the gate fails without it" >/dev/null
+fael chunk note "$B" "finished: $B works, commit on plan/p/lane/$B, not pushed" >/dev/null
 expect 0 "$CG" ship p --gate true --in "$T/wt-t-agent-2"
 (cd / && expect 0 "$CR" done p --pr 5 --in "$T/wt-t-agent-2")
 for u in $A $B $P $Q; do [ "$(show "$u" .state)" = done ] || fail "$u not done"; done
 ! grep -q 'outside,' "$T/out" || fail "done repeated the outside lines run end printed"
 [ "$(show "$A" .handoff.text)" = "$A works · kept x: the gate fails without it" ] ||
   fail "hand-off is not A's finished: note and its kept note"
+kB=$(git log --format=%h --grep "^lane $B\$" plan/p/stack)
+[ "$(show "$B" .handoff.text)" = "$B works, commit on $kB (PR 5), not pushed" ] ||
+  fail "hand-off still names B's deleted lane branch: $(show "$B" .handoff.text)"
 [ "$(show "$Q" .handoff.text)" = "$P works" ] || fail "the pair's other half lost the lane's hand-off"
 [ "$(show "$D" .state)" != done ] || fail "D done without a trailer"
 expect 0 "$CR" done p --pr 5 --in "$T/wt-t-agent-2"
