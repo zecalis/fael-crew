@@ -42,15 +42,18 @@ cat > AGENTS.md <<'EOF'
 
 Gates: `./test.sh` (exit 0). Commits and PRs in English.
 
-No GitHub here. `push pr` = run the gates, then `./pr.sh <branch> "<title>" < body.md`: it
-pushes the branch to origin, files the PR in origin.git/prs and prints its number N — use N
+No GitHub here. `push pr` = run the gates, push the branch, then `./pr.sh <branch> "<title>" < body.md`:
+like gh pr create it pushes nothing (it refuses a branch origin does not hold at its local tip),
+files the PR in origin.git/prs and prints its number N — use N
 wherever a PR number goes (`fael chunk done --pr N`). Never merge: the owner does.
 EOF
 cat > pr.sh <<'EOF'
 #!/bin/sh
-# Stand-in for gh pr create: pushes <branch>, files the PR (body from stdin), prints its number.
+# Stand-in for gh pr create: files the PR for <branch> (body from stdin), prints its number.
+# Pushes nothing, so a lease-guarded push before it stays the last word.
 set -eu
-git push -q -f origin "$1"
+[ "$(git ls-remote origin "refs/heads/$1" | cut -f1)" = "$(git rev-parse "$1")" ] ||
+  { echo "pr.sh: origin does not hold $1 at its local tip; push it first" >&2; exit 1; }
 p=$(git remote get-url origin)/prs
 printf '%s\t%s\n' "$1" "$2" >> "$p"
 n=$(wc -l < "$p" | tr -d ' ')
