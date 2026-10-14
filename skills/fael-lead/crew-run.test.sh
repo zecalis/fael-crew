@@ -81,6 +81,7 @@ has "Lead's rules:" "$T/stdin"
 has "fael chunk note $A" "$T/stdin"
 [ "$(show "$A" .run.ended)" != null ] || fail "run not ended"
 [ "$(show "$A" .run.cost)" = 0.25 ] || fail "cost not kept"
+[ "$(show "$A" .run.client)/$(show "$A" .run.model)" = claude/haiku ] || fail "run row lacks client or model"
 ! git -C "$T/wt-t-agent-1" symbolic-ref -q HEAD >/dev/null || fail "w1 still on the lane"
 
 # waited, then a resume on the same lane: a note without finished: is a crash, so is a failed
@@ -95,6 +96,9 @@ has "claude exit 3" "$T/out"
 STUB=error STUB_UID=$B expect 2 "$CR" work p 1 "$B" --in "$T/wt-t-agent-2"
 STUB=finish STUB_UID=$B expect 0 "$CR" work p 1 "$B" --in "$T/wt-t-agent-2"
 [ "$(git rev-list --count plan/p/s1..plan/p/lane/$B)" = 1 ] || fail "resume left the lane"
+# no --model: the approval's model, else the chunk's hint, reaches claude and the run row
+[ "$(show "$B" .run.model)" = haiku ] || fail "run row lacks the hint's model"
+has haiku "$T/argv"
 
 # beat: a slow worker is seen while it runs; started from outside the repo
 (cd / && STUB=slow STUB_UID=$D expect 0 "$CR" work p 1 "$D" --in "$T/wt-t-agent-3")
