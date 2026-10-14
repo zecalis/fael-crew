@@ -113,22 +113,23 @@ One table, two lines a row, no uid, no header, no `—` column:
    fael/src/x/ (near cap) · reads x only through contract:x
 ```
 
-Line two: scope, then G2's one line of why. `→` is the worktree it will run in (G4). Then each Q: `Q1 #2:` the problem in one line, one line
-per option, your pick as `(a)`. End with the one line:
+Line two: scope · G2's why. `→` is its worktree (G4). Then each Q: `Q1 #2:` the problem in one
+line, one line per option, your pick as `(a)`. End with:
 
 ```
 Reply: ok · ok 2 sonnet · ok Q1 b · no 3
 ```
 
-The reply is the approval: apply each Q first (`fael chunk edit` clears an approval), then
-`fael chunk approve <uid>` per approved row (`--model` only if re-modelled), and echo what fael
-printed. Only rows of the table you last showed, only on the owner's reply. A reply you cannot
-read: ask again. **No reply, no set.**
+The reply is the approval, to the table you last showed: apply each Q first (`fael chunk edit`
+clears an approval), then `fael chunk approve <uid>` per approved row (`--model` only if
+re-modelled); echo what fael printed. A reply you cannot read: ask again. **No reply, no set.**
 
 ## G4 — Start
 
-`crew-run` next to this file runs one `claude -p` per call (fael ≥ 0.58.0). Start each `work`
-and `review` in the background: its exit is your notification — never poll.
+`crew-run` next to this file runs one `claude -p` per call (fael ≥ 0.58.0); all else runs in
+the foreground. A `crew-run` outlives Bash's 10-minute limit and lanes run together: start each
+with `run_in_background`; its exit wakes you with its output. A subagent lead is never woken:
+it waits on each with Monitor before it hands back. Never poll.
 
 1. `crew-git cut <project> <n>`: the set branch at the stack G0 synced (no stack: `origin/main`).
 2. Per lane, a worktree: a `worktrees[]` entry with `run: null` and no uncommitted work, highest
@@ -197,10 +198,9 @@ fael add issue "<what happened, the set, the repro>" --title "<one line>" \
   --key lead:miss:<leak|collision|contract|refused|gate-on-top|review> --files <a,b>
 ```
 
-Then compare what each lane really changed (its `outside` lines at G5; `touched` in the board
-JSON once done): a shared path no scope predicted is a `collision` miss too. A
-class now at 2 sets → a Q to the owner naming the gate that should have caught it: a check (script,
-gate, CI) when the miss is mechanical, else a skill change that removes as many lines as it adds.
+Then compare what each lane really changed (G5's `outside` lines, `touched` once done): a shared
+path no scope predicted is a `collision` miss too. A class at 2 sets → a Q naming the gate that
+should have caught it: a check (script, gate, CI) if mechanical, else a skill change, no net lines.
 
 Hand back in the owner's language, these lines only:
 

@@ -2,8 +2,8 @@
 # crew-run — the lead's processes: one headless claude -p per call, in a free worktree, seen on
 # the board while it runs, its fael run ended once it exits. No state of its own: the session
 # and run ids live in fael, the PID is the lead's background task, logs under
-# <git-common-dir>/crew-run/ die with the wave. Run it from any cwd, in the foreground: it
-# blocks until claude exits, and its last lines and exit are the result.
+# <git-common-dir>/crew-run/ die with the wave. Run it from any cwd. It blocks until claude
+# exits, often past a 10-minute foreground call, so the lead backgrounds it: the exit wakes it.
 #
 #   crew-run work   <p> <n> <uid> --in <wt> [--model m] [--contract <id>]…
 #       plan/<p>/lane/<uid> in <wt> (new from s<n>, or the lane as it is on a resume), fael chunk
