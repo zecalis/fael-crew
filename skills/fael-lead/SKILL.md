@@ -60,12 +60,13 @@ fael board --json --open | jq --arg r <repo root> '.projects[] | select(.root ==
 ```bash
 fael find --key lead:<project>        # the last hand back: next set, open Qs
 fael find --key 'lead:miss:*'         # past misses, by class (--key takes a glob)
-fael board --json --open | jq --arg r <repo root> '.projects[] | select(.root == $r) | del(.ledger)'
+fael board --json --open | jq --arg r <repo root> '.projects[] | select(.root == $r)
+  | .chunks[] | select(.ready) | {uid,label,plan,size,unblocks}'    # ready only; the rest per pick, below
 fael board --json | jq '.running | length'
 ```
 
-Per ready chunk: `scope`, `blocked_by`, `pair`, `overlaps` (live runs and open PRs included),
-and `crew-run scope <project> <uids>`: each path a brief names that its scope lacks. Per past set: the `touched`
+Per G2 pick (4-5), not every ready chunk: `scope`, `blocked_by`, `pair`, `overlaps` (live runs and open PRs
+included), and `crew-run scope <project> <uids>`: each path a brief names that its scope lacks. Per past set: the `touched`
 of its chunks — two that share a path collided, whatever their scopes said. `--open` drops
 stacked chunks: they are the stack's `Fael-Chunk` trailers (`git log origin/main..plan/<project>/stack`),
 their `touched` in `fael chunk show <uid> --json`. From run end to G7.4's done a chunk reads
@@ -83,7 +84,7 @@ goes before work nothing waits on. A chunk is **out** when a check fails and no 
 
 | Check | Fails when | Fix |
 |---|---|---|
-| Scoped | `scope` empty (board: `— no scope`), or `crew-run scope` (G1) lists a path the brief edits, or the change reaches a layer no brief word names: walk it one layer down in the repo's own order (its slice skill or ARCHITECTURE) — the type or schema under it, the seed or fixture that makes its data, an error code it adds, the list its rows link to. `crew-run scope` reads only path-shaped words, so these leaked 3 sets running | empty: out this set, named in G3 as `skipped, no scope: <uid>…` for the owner or `/fael-plan`, never dropped silently. A missing path: the scope lists it before the set (widen it in the row, the owner's `ok` sets it with `fael chunk edit --scope`) or back to `/fael-plan`; never left to the brief's prose |
+| Scoped | `scope` empty (board: `— no scope`), or `crew-run scope` (G1) lists a path the brief edits, or the change reaches a layer no brief word names: walk it one layer down in the repo's own order (its slice skill or ARCHITECTURE) — the type or schema under it, the seed or fixture that makes its data, an error code it adds, the list its rows link to, the existing checks that read what it touches (verify, unlock, relock on a moved or re-signed record): each is in the scope or a Q in G3. `crew-run scope` reads only path-shaped words, so these leaked 3 sets running | empty: out this set, named in G3 as `skipped, no scope: <uid>…` for the owner or `/fael-plan`, never dropped silently. A missing path: the scope lists it before the set (widen it in the row, the owner's `ok` sets it with `fael chunk edit --scope`) or back to `/fael-plan`; never left to the brief's prose |
 | Disjoint | its scope meets another pick, a live run or an open PR; a changed pub item counts every caller (grep, tests included) | widen scope + `after` in the row, or out. A stacked chunk's paths are on the set branch already: widen scope, no `after` on it — that `after` holds the new chunk until the stacked one is done, at push pr (G7.4) |
 | Order | an `after` between two picks | small → `pair` in the row (one worker, one run); big → the later waits |
 | Interface | two picks meet at a type, schema, table, CLI or JSON | a contract (below) before either starts; no contract, no parallel |
@@ -92,7 +93,8 @@ goes before work nothing waits on. A chunk is **out** when a check fails and no 
 
 A mechanical fix rides in its row (`scope → x/ (near cap)`), so one `ok` takes it. A Q is only
 for an answer that changes the set or a brief: a breaking contract, an owner's choice. Each pick
-gets one line of why; a pick you cannot justify in one line is out.
+gets one line of why; a pick you cannot justify in one line is out. Before G3, `fael find` each pick's
+one or two key facts: a row that contradicts the brief sends it back to `/fael-plan`, out of this set.
 
 `project.shared` paths (docs, registries, goldens) are nobody's: never an overlap, their
 conflicts are yours at G5.
@@ -175,7 +177,8 @@ else sonnet), its fixes committed on that worktree's HEAD, the rest recorded to 
 lines read as G5's (a kept note on a lane, a restore on that HEAD); its last lines are the
 verdict G8 hands back. Exit 2: it failed or left uncommitted work — read it there.
 
-Then you: a nit or PLAUSIBLE worth a commit, commit it there; G7.1 gates it. A blocker it
+Then you: a nit or PLAUSIBLE worth a commit, commit it there; G7.1 gates it. A fix you hand to a
+subagent runs only the tests of files it touches: the stack gates the set (G7). A blocker it
 could not fix → that lane out (G5), a `lead:miss:review` issue either way.
 
 ## G7 — Stack, and ship on the owner's word
@@ -200,7 +203,7 @@ Each miss of this set is one issue, its class in the key:
 
 ```bash
 fael add issue "<what happened, the set, the repro>" --title "<one line>" \
-  --key lead:miss:<leak|collision|contract|refused|gate-on-top|review> --files <a,b>
+  --key lead:miss:<leak|collision|contract|refused|gate-on-top|review|brief> --files <a,b>
 ```
 
 Then compare what each lane really changed (G5's `outside` lines, `touched` once done): a shared
