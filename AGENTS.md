@@ -41,7 +41,8 @@ owner did, and it judges nothing.
 - `skills/fael-lead/crew-run`: the lead's processes (a worker per lane on claude or opencode, the set's reviewer):
   start, beat, run end, a one-line verdict, the brief paths a scope lacks, and fael chunk done
   from the stack's trailers; `crew-run.test.sh` beside it is its check
-- `scripts/wave-sandbox.sh`: rehearse a lead (sets, review, stack, push pr) on a toy project
+- `scripts/wave-sandbox.sh`: rehearse a lead (sets, review, stack, push pr) on a toy project;
+  `wave-sandbox.test.sh` beside it builds one and runs crew-run and crew-git through it, no claude
 
 Skills are markdown, and there is no binary. Stateless git helpers next to a skill are fine:
 their only state is git refs, so they pass the cache test above. A binary comes only when skill-held wave state

@@ -210,7 +210,9 @@ has "not 01M4XXXXXXXXXXXXXXXXXXXXXX" "$T/out"
 [ "$(show "$D" .state)" != done ] || fail "D done under a run it no longer holds"
 
 # scope: a path the brief names outside the scope (and project.shared) is listed; a label works
-S1=$(fael chunk add fs --plan sim --label fs --scope s/ --size S --brief "Write s/a.sh and s/b/c.sh, then edit lib/x.sh and README.md." 2>/dev/null | tail -1)
+# (a brief of several lines: its JSON carries \n, which /bin/sh's echo once turned into a jq error)
+S1=$(fael chunk add fs --plan sim --label fs --scope s/ --size S --brief "Write s/a.sh and s/b/c.sh.
+Then edit lib/x.sh and README.md." 2>/dev/null | tail -1)
 mkdir -p .fael && echo README.md >.fael/shared
 expect 0 "$CR" scope p "$S1"
 has "unscoped fs: lib/x.sh" "$T/out"

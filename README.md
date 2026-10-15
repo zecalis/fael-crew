@@ -21,7 +21,7 @@ every set and merges every PR on GitHub; local merges are the lead's.
 | `skills/fael-lead/crew-git` | the lead's branch moves: land, stack, sync, ship — gated, atomic, needs git ≥ 2.54 |
 | `skills/fael-lead/crew-wt` | throwaway worktrees: `new`, `adopt`, `rm`, `gc`, `ls`, each with the repo's own setup and teardown (below) |
 | `skills/fael-content` | `/fael-content` — plan a month of posts as chunks |
-| `scripts/wave-sandbox.sh` | rehearse a lead on a throwaway toy project before a real one |
+| `scripts/wave-sandbox.sh` | rehearse a lead on a throwaway toy project before a real one; `wave-sandbox.test.sh` checks it builds and the helpers run on it |
 
 ## Requirements
 

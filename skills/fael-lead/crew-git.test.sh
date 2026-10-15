@@ -149,5 +149,36 @@ expect 0 "$CG" sync p --gate "$G" --in "$T/wt-t-agent-1"
 [ "$(git show plan/p/stack:i)" = 'i!' ] || fail "sync lost the owner's tweak"
 [ "$(r refs/remotes/origin/plan/p/stack)" = none ] || fail "stale origin/plan/p/stack kept"
 expect 0 "$CG" ship p --gate "$G" --in "$T/wt-t-agent-1"
+
+# the same, but another fetch --prune drops origin/plan/p/stack before sync runs: ship's own
+# refs/crew record still names the pushed head, so only set 6 replays (vela PR 502 replayed the lot)
+expect 0 "$CG" cut p 6 --in "$T/wt-t-agent-1"
+mklane K plan/p/s6 'echo k > k'
+expect 0 "$CG" land p 6 K -m "k" --gate "$G" --in "$T/wt-t-agent-1"
+git -C "$T/wt-t-agent-1" switch -q --detach plan/p/s6
+expect 0 "$CG" stack p 6 --gate "$G" --in "$T/wt-t-agent-1"
+(cd "$T/c" && git pull -q && git fetch -q origin plan/p/stack && git merge -q --squash FETCH_HEAD >/dev/null 2>&1 &&
+  echo 'j!' > j && git add j && git commit -qm "squash PR 4, owner's tweak" && git push -q origin main :plan/p/stack)
+git fetch -q --prune origin
+expect 0 "$CG" sync p --gate "$G" --in "$T/wt-t-agent-1"
+[ "$(git rev-list --count origin/main..plan/p/stack)" = 1 ] || fail "sync replayed the merged set 5 after a prune"
+[ "$(git show plan/p/stack:j)" = 'j!' ] || fail "sync lost the owner's tweak after a prune"
+git show plan/p/stack:k >/dev/null 2>&1 || fail "sync lost set 6 after a prune"
+
+# a stack shipped before that record existed, pruned too, and main changed set 7's line after the
+# squash: the newest stack commit main holds stands in for the pushed head
+expect 0 "$CG" ship p --gate "$G" --in "$T/wt-t-agent-1"
+expect 0 "$CG" cut p 7 --in "$T/wt-t-agent-1"
+mklane L plan/p/s7 'echo l > l'
+expect 0 "$CG" land p 7 L -m "l" --gate "$G" --in "$T/wt-t-agent-1"
+git -C "$T/wt-t-agent-1" switch -q --detach plan/p/s7
+expect 0 "$CG" stack p 7 --gate "$G" --in "$T/wt-t-agent-1"
+(cd "$T/c" && git pull -q && git fetch -q origin plan/p/stack && git merge -q --squash FETCH_HEAD >/dev/null 2>&1 &&
+  git commit -qm "squash PR 5" && echo 'k!' > k && git commit -qam "main moves on k" && git push -q origin main :plan/p/stack)
+git update-ref -d refs/crew/plan/p/stack
+git fetch -q --prune origin
+expect 0 "$CG" sync p --gate "$G" --in "$T/wt-t-agent-1"
+[ "$(git rev-list --count origin/main..plan/p/stack)" = 1 ] || fail "sync replayed the merged set 6 without a record"
+[ "$(git show plan/p/stack:k)" = 'k!' ] || fail "sync lost main's change without a record"
 expect 4 "$CG" nope p
 echo "crew-git: all pass"
