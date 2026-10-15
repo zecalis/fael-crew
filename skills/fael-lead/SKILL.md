@@ -1,6 +1,6 @@
 ---
 name: fael-lead
-description: Lead one project's dev work — read every plan's ready chunks in the repo, pick a set of 2-5 that can run together, pin the contracts they share, start each approved chunk as a headless claude -p worker under its own session id, answer what workers ask, land the lanes into a set branch, have a fresh session review and fix it (opus, sonnet for an all-S set), merge sets into a local stack and push the stack as one PR when the owner says push pr. Merges locally, never on GitHub, never forces a start. Run by /fael-lead [project] only.
+description: Lead one project's dev work — read every plan's ready chunks in the repo, pick a set of 1-5 that can run together, pin the contracts they share, start each approved chunk as a headless claude -p worker under its own session id, answer what workers ask, land the lanes into a set branch, have a fresh session review and fix it (opus, sonnet for an all-S set), merge sets into a local stack and push the stack as one PR when the owner says push pr. Merges locally, never on GitHub, never forces a start. Run by /fael-lead [project] only.
 disable-model-invocation: true
 ---
 
@@ -50,9 +50,8 @@ fael board --json --open | jq --arg r <repo root> '.projects[] | select(.root ==
 ```
 
 - **0** → nothing to lead (a chunk `blocked_by` only stacked ones waits for push pr: ask for it, G7.3). Say so and stop.
-- **1**, nothing of yours running → not yours: the owner starts it, or approves it to the queue
-  and the board starts it (decision 01M4TYKJ). Stop.
-- **2+** → G1.
+- **1+** → G1. One is a set of 1: G2 still checks it against live runs, open PRs and the
+  stack, and G3 still asks the owner (decision fael:01M4Z88Y).
 
 ## G1 — Facts, read once
 
@@ -74,10 +73,11 @@ their `touched` in `fael chunk show <uid> --json`. From run end to G7.4's done a
 
 ## G2 — Cut the set
 
-Size: **2**, until 3 sets in a row closed with no `lead:miss`; then up to **5**. A miss drops
-it back to 2.
+Size: **2** (1 when only one is ready), until 3 sets in a row closed with no `lead:miss`; then
+up to **5**. A miss drops it back to 2.
 
-Take ready chunks in plan order. A chunk is **out** when a check fails and no fix holds:
+Take ready chunks by `unblocks`, most first, ties in plan order: the next link of a chain
+goes before work nothing waits on. A chunk is **out** when a check fails and no fix holds:
 
 | Check | Fails when | Fix |
 |---|---|---|
@@ -112,7 +112,7 @@ One table, two lines a row, no uid, no header, no `—` column:
 
 ```
 1  schema-x   M opus     contract:x
-   fael-core/src/x.rs · first in plan order, its scope meets no other pick
+   fael-core/src/x.rs · unblocks 2, its scope meets no other pick
 2  cli-x      S sonnet   pair #3
    fael/src/x/ (near cap) · reads x only through contract:x
 ```
