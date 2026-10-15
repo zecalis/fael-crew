@@ -2,7 +2,7 @@
 
 ## What crew is
 
-crew is the lead: one agent per project that picks a set of 2–5 ready chunks across its
+crew is the lead: one agent per project that picks a set of 1–5 ready chunks across its
 plans, starts each approved one as a headless `claude -p` worker under its own session id in
 its own worktree, answers what workers ask, lands the lanes, has a fresh session review and fix each set, merges
 sets into a local stack and pushes it as one PR on the owner's push pr. The owner approves

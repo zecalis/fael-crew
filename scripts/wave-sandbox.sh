@@ -2,7 +2,7 @@
 # Rehearse /fael-lead (G0-G8: sets, review, local stack, push pr) in a throwaway repo first.
 # Usage: scripts/wave-sandbox.sh [dir]   (default: ~/fael-wave-sandbox; never under a temp
 # dir — fael board skips those). Again from scratch: fael board --drop <dir>/calc; rm -rf <dir>.
-# Builds a toy project "calc" — repo, bare origin — and a plan "sim" of five
+# Builds a toy project "calc" — repo, bare origin — and a plan "sim" of seven
 # chunks, each made to hit one gate. No GitHub: ./pr.sh stands in for gh pr create, and the
 # repo's AGENTS.md says so. Its fael.db is the sandbox's own; run through <dir>/sandbox.sh and
 # fael's state (board registry, stats, the machine-wide running count) is too.
@@ -69,7 +69,9 @@ t() { got=$(sh "calc/$1.sh" "$2" "$3"); [ "$got" = "$4" ] || { echo "FAIL $1 $2 
 [ -f calc/mul.sh ] && t mul 4 5 20
 [ -f calc/sub.sh ] && t sub 7 2 5
 [ -f calc/div.sh ] && t div 8 2 4
-[ -f calc/mod.sh ] && t mod 7 3 1
+[ -f calc/pow.sh ] && t pow 2 3 8
+[ -f calc/sq.sh ] && t sq 3 0 9
+[ -f calc/cube.sh ] && t cube 2 0 8
 echo ok
 EOF
 chmod +x test.sh pr.sh
@@ -87,7 +89,7 @@ git switch -q main
 git branch -q -D owner-change
 
 fael plan new sim "Lead rehearsal: calc ops" --area dev >/dev/null
-add() { fael chunk add "$1" --plan sim --label "$2" --scope "$3" --size S --model haiku --brief "$4" | tail -1; }
+add() { t=$1 l=$2 s=$3 b=$4; shift 4; fael chunk add "$t" --plan sim --label "$l" --scope "$s" --size S --model haiku --brief "$b" "$@" | tail -1; }
 add "calc add" add calc/add.sh \
   "Write calc/add.sh: prints A+B (integers, negatives too). Gate: the repo's gates (AGENTS.md)."
 add "calc mul" mul calc/mul.sh \
@@ -96,15 +98,21 @@ add "calc sub" sub calc/sub.sh \
   "Write calc/sub.sh: prints A-B, implemented by calling calc/add.sh with -B. Add a usage comment at the top of calc/add.sh saying sub depends on it. Add '- sub: A-B' to README.md. Gate: the repo's gates (AGENTS.md)."
 add "calc div" div calc/div.sh \
   "Write calc/div.sh: prints A/B as an integer. What it prints when B is 0 is the owner's call — not decided here. Add '- div: A/B' to README.md. Gate: the repo's gates (AGENTS.md)."
-add "calc mod" mod calc/mod.sh \
-  "Write calc/mod.sh: prints A mod B. Gate: the repo's gates (AGENTS.md)."
+# a chain listed after the parallel four: only unblocks puts its head first
+pow=$(add "calc pow" pow calc/pow.sh \
+  "Write calc/pow.sh: prints A to the power B (B >= 0). Gate: the repo's gates (AGENTS.md).")
+sq=$(add "calc sq" sq calc/sq.sh \
+  "Write calc/sq.sh: prints A squared by calling calc/pow.sh A 2 (B is ignored). Gate: the repo's gates (AGENTS.md)." --after "$pow")
+add "calc cube" cube calc/cube.sh \
+  "Write calc/cube.sh: prints A cubed by calling calc/sq.sh A and multiplying by A (B is ignored). Gate: the repo's gates (AGENTS.md)." --after "$sq" >/dev/null
 
 cat <<EOF
 
 Sandbox ready: $DIR/calc (origin: $DIR/origin.git; lanes get crew-wt worktrees beside it)
 
 Traps — what a correct lead does (no lead:miss history, so sets are 2):
-  set 1  add + mul        plan order, scopes disjoint; mul edits README.md (shared, nobody's)
+  set 1  pow + add        pow unblocks 2 (sq, cube), so it goes first though listed fifth;
+                          then plan order. Plan order alone would cut add + mul
   G5     each lane        fael run end R as its worker exits, crew-wt rm once it lands, done keeps
                           the lane's own diff after the rebase; the lane lands as one commit
                           titled for its chunk, no WIP checkpoint in the stack
@@ -112,13 +120,16 @@ Traps — what a correct lead does (no lead:miss history, so sets are 2):
                           chunk is S), opus once a set holds an M or L; never haiku
   G7.1   set 1 stacked    plan/calc/stack fast-forwards to s1, nothing pushed
   G7.2   before set 2     you merged owner-change: the lead rebases the stack onto origin/main
-  set 2  sub + div        sub's brief edits calc/add.sh outside its scope: the row widens the
+  set 2  mul + sub        both append to README.md (shared, nobody's): merge=union keeps both
+         sub              sub's brief edits calc/add.sh outside its scope: the row widens the
                           scope, and no --after add (add is in the stack, not done: an after
                           would block until push pr) — or sub waits; never --force
-         div              B=0 is yours: a Q in the set table, its answer a chunk note
-         README.md        sub and div both append to it: merge=union keeps both lines
-  G0     mod alone        one ready chunk: the lead stops — you start it from the board
+  set 3  div alone        sq waits on pow, stacked not done: div is the one ready, a set of 1
+                          (still checked against the stack, still a set table). B=0 is
+                          yours: a Q in the set table, its answer a chunk note
   push pr               ./pr.sh, one PR for the stack; then chunk done --pr N per stacked chunk
+  set 4  sq alone         ready once pow is done: a chain moves one link per push pr; cube
+                          the same after the next one
   G8     a miss           a lead:miss:<class> issue, never a skill edit; the lead:calc note
 
 Run:  cd $DIR/calc && ../sandbox.sh claude   then   /fael-lead calc

@@ -19,7 +19,7 @@ export FAEL_STATE_DIR=$D/.state
 cd "$D/calc"
 ./test.sh >/dev/null || fail "the skeleton fails its own gate"
 uid() { fael plan export sim --json | jq -r --arg l "$1" '.chunks[] | select(.label == $l) | .uid'; }
-[ "$(fael plan export sim --json | jq '.chunks | length')" = 5 ] || fail "plan sim lacks its 5 chunks"
+[ "$(fael plan export sim --json | jq '.chunks | length')" = 7 ] || fail "plan sim lacks its 7 chunks"
 
 # pr.sh pushes nothing: a branch origin lacks is refused
 git branch unpushed
