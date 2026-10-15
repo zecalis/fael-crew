@@ -51,7 +51,7 @@ fael board --json --open | jq --arg r <repo root> '.projects[] | select(.root ==
 
 - **0** → nothing to lead (a chunk `blocked_by` only stacked ones waits for push pr: ask for it, G7.3). Say so and stop.
 - **1+** → G1. One is a set of 1: G2 still checks it against live runs, open PRs and the
-  stack, and G3 still asks the owner (decision fael:01M4Z840).
+  stack, and G3 still asks the owner (decision fael:01M4Z88Y).
 
 ## G1 — Facts, read once
 
