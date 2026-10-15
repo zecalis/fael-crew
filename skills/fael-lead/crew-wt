@@ -7,6 +7,9 @@
 # worktree>, FAEL_WT_MAIN=<the main checkout>; setup runs in the worktree, teardown in the main
 # checkout (the worktree may be gone). Each hook comes from the worktree's .fael/worktree.json,
 # else the main checkout's. What setup writes must be gitignored, or the worktree reads dirty.
+# A hook that destroys anything (a db reset, a drop) first checks slots.json[N] == FAEL_WT_PATH
+# and refuses otherwise: N may be hand-set, and slot N may be another worktree's (vela:01M4Z562).
+# The lease still holds while teardown runs; crew-wt frees it after.
 #
 #   crew-wt new   <repo> <branch> [--at <path>] [--from <ref>]
 #       git worktree add -b <branch> <path> <ref> (default origin/main) at <path> (default
