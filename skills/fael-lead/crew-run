@@ -190,7 +190,7 @@ review)
   git switch -q --detach "$set"
   S0=$(git rev-parse HEAD)
   prompt=$logs/review-s$n.md
-  echo "/fael-review high --fix $base...$set — spec per lane: fael chunk show <uid> ($lanes); a done criterion the diff leaves undone is a major. Commit each fix you make on this detached HEAD, never on a branch; record each finding you leave with fael add." >"$prompt"
+  echo "/fael-review high --fix $base...$set — spec per lane: fael chunk show <uid> ($lanes); a done criterion the diff leaves undone is a major. Commit each fix you make on this detached HEAD, never on a branch; run only the tests of files you touch, G7 stack gates the set; record each finding you leave with fael add." >"$prompt"
   echo "review $set · $model · session $sid · $wt"
   out=$logs/review-s$n-$sid.json
   rc=0; claude_p "$model" "$sid" "$prompt" "$out" || rc=$?
