@@ -67,7 +67,8 @@ fael plan new sim "test" --area dev >/dev/null
 add() { fael chunk add "$1" --plan sim --label "$1" --scope "$1" --size "$2" --model haiku --brief "write $1" 2>/dev/null | tail -1; }
 A=$(add fa S) B=$(add fb S) C=$(add fc M) D=$(add fd S)
 fael chunk add fe --plan sim --label fe --scope e/ --size S --brief "write e/" >/dev/null 2>&1
-for u in $A $B $C $D; do fael chunk approve "$u" >/dev/null; done
+for u in $A $B $D; do fael chunk approve "$u" >/dev/null; done
+fael chunk approve "$C" --model opus >/dev/null
 
 # refusals: no set yet, the main worktree (the owner's checkout, left as it was), a dirty one
 expect 4 "$CR" work p 1 "$A" --in "$T/wt-t-agent-1"
@@ -144,7 +145,7 @@ expect 4 "$CR" work p 1 "$C" --in "$T/wt-t-agent-1"
 has "fael refused the start" "$T/out"
 ! git -C "$T/wt-t-agent-1" symbolic-ref -q HEAD >/dev/null || fail "w1 left on the refused lane"
 
-# review: S lanes take sonnet, set 1 reviews against origin/main, a fix commit stays on HEAD
+# review: lanes off opus take sonnet, an opus lane opus, set 1 reviews against origin/main, a fix commit stays on HEAD
 expect 4 "$CR" review p 1 --in "$T/wt-t-agent-1"
 STUB=fix expect 0 "$CR" review p 1 --in "$T/wt-t-agent-1" --lanes "$A,$B"
 has sonnet "$T/argv"

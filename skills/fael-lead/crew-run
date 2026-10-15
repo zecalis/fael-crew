@@ -14,7 +14,7 @@
 #       exits, then <wt> detached so the lane can go once it lands
 #   crew-run review <p> <n> --in <wt> --lanes <uid,…>
 #       /fael-review high --fix of s<n> against the stack (origin/main for set 1), in <wt>
-#       detached at s<n>; sonnet when every lane is S, else opus; its fixes stay on <wt>'s HEAD,
+#       detached at s<n>; opus when a lane ran on opus, else sonnet; its fixes stay on <wt>'s HEAD,
 #       their paths outside the lanes' scopes said as work says them
 #   crew-run scope  <p> <uid>…
 #       G2's check: each path a chunk's brief names that its scope (its pair's too) and
@@ -179,10 +179,13 @@ EOF
 review)
   base=plan/$p/stack
   git rev-parse -q --verify "refs/heads/$base" >/dev/null || base=origin/main
+  # the reviewer takes the set's strongest lane: opus when one ran on opus (the owner's
+  # approval already priced its risk), else sonnet — never haiku
   model=sonnet
   for u in $(echo "$lanes" | tr , ' '); do
-    s=$(fael chunk show "$u" --json | jq -r .size) || die 4 "no chunk $u"
-    [ "$s" = S ] || model=opus
+    m=$(fael chunk show "$u" --json | jq -r '.run.model // .approval.model // .model_hint // ""') ||
+      die 4 "no chunk $u"
+    case $m in *opus*) model=opus ;; esac
   done
   git switch -q --detach "$set"
   S0=$(git rev-parse HEAD)

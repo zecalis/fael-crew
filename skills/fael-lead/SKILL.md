@@ -1,6 +1,6 @@
 ---
 name: fael-lead
-description: Lead one project's dev work — read every plan's ready chunks in the repo, pick a set of 1-5 that can run together, pin the contracts they share, start each approved chunk as a headless claude -p worker under its own session id, answer what workers ask, land the lanes into a set branch, have a fresh session review and fix it (opus, sonnet for an all-S set), merge sets into a local stack and push the stack as one PR when the owner says push pr. Merges locally, never on GitHub, never forces a start. Run by /fael-lead [project] only.
+description: Lead one project's dev work — read every plan's ready chunks in the repo, pick a set of 1-5 that can run together, pin the contracts they share, start each approved chunk as a headless claude -p worker under its own session id, answer what workers ask, land the lanes into a set branch, have a fresh session review and fix it (opus when a lane ran on opus, else sonnet), merge sets into a local stack and push the stack as one PR when the owner says push pr. Merges locally, never on GitHub, never forces a start. Run by /fael-lead [project] only.
 disable-model-invocation: true
 ---
 
@@ -16,9 +16,11 @@ never forward. Local merges are yours; a GitHub PR merge is the owner's (decisio
 
 **Inside the gates you decide.** A commit that changes no behaviour (format, a typo, a test
 name) goes in without asking; a fix not worth it or barely possible is your call; subagents are
-yours to spawn. **Models:** workers take the chunk's hint, haiku included, on the approval's
-client (opencode, else claude: crew-run picks). A reviewer is claude opus; sonnet only for a set
-of S chunks; never haiku. **Effort:** high. Max only aimed at one named critical point (a
+yours to spawn. **Models:** G3 proposes sonnet; opus only for a chunk that touches a migration,
+money, auth or a contract another lane reads (an opus lane costs 6-8x a sonnet one, vela
+2026-10-15); haiku for a mechanical S. Workers take the approved model on the approval's client
+(opencode, else claude: crew-run picks). The reviewer takes the set's strongest lane: opus when
+a lane ran on opus, else sonnet; never haiku. **Effort:** high. Max only aimed at one named critical point (a
 contract, a migration, auth, money) — never a whole set.
 
 ## The four principles
@@ -168,8 +170,8 @@ with `run_in_background`; its exit wakes you, a subagent lead too, with its outp
 
 Every set, no exception: the lead wrote the cut, so a fresh session judges the diff, and each
 lane's brief is its spec. `crew-run review <project> <n> --in <gate wt> --lanes <landed uids>`
-runs `/fael-review high --fix` on the set against the stack (sonnet for an all-S set, else
-opus), its fixes committed on that worktree's HEAD, the rest recorded to fael. Its `outside`
+runs `/fael-review high --fix` on the set against the stack (opus when a lane ran on opus,
+else sonnet), its fixes committed on that worktree's HEAD, the rest recorded to fael. Its `outside`
 lines read as G5's (a kept note on a lane, a restore on that HEAD); its last lines are the
 verdict G8 hands back. Exit 2: it failed or left uncommitted work — read it there.
 
@@ -215,8 +217,9 @@ breaking: <what, who calls it>        (only when there is one)
 next set: <labels> — a proposal, not started      (or: none — <why>)
 ```
 
-Last, the row the next lead resumes from (G1) — the one point to `/clear` or compact; mid-set, a
-live lane lives only in this context. Re-file it at a G0 stop too. `--files` warns on a path only
+Last, the row the next lead resumes from (G1). Then end this session: the next set starts in a
+new one (`/fael-lead <project>`), since every turn rereads the whole context and a long one costs
+each turn more — this row carries all it needs. Mid-set, a live lane lives only in this context. Re-file it at a G0 stop too. `--files` warns on a path only
 the stack holds yet: expected. Commas and full stops only: fael refuses two `·`, or three `;`/`·`.
 
 ```bash
