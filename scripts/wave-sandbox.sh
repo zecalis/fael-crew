@@ -2,7 +2,7 @@
 # Rehearse /fael-lead (G0-G8: sets, review, local stack, push pr) in a throwaway repo first.
 # Usage: scripts/wave-sandbox.sh [dir]   (default: ~/fael-wave-sandbox; never under a temp
 # dir — fael board skips those). Again from scratch: fael board --drop <dir>/calc; rm -rf <dir>.
-# Builds a toy project "calc" — repo, bare origin, 3 worktrees — and a plan "sim" of five
+# Builds a toy project "calc" — repo, bare origin — and a plan "sim" of five
 # chunks, each made to hit one gate. No GitHub: ./pr.sh stands in for gh pr create, and the
 # repo's AGENTS.md says so. Its fael.db is the sandbox's own; run through <dir>/sandbox.sh and
 # fael's state (board registry, stats, the machine-wide running count) is too.
@@ -85,7 +85,6 @@ git commit -qam "docs: say POSIX"
 git push -q origin owner-change
 git switch -q main
 git branch -q -D owner-change
-for n in 1 2 3; do git worktree add -q "$DIR/wt-calc-agent-$n" -b "idle-$n"; done
 
 fael plan new sim "Lead rehearsal: calc ops" --area dev >/dev/null
 add() { fael chunk add "$1" --plan sim --label "$2" --scope "$3" --size S --model haiku --brief "$4" | tail -1; }
@@ -102,11 +101,11 @@ add "calc mod" mod calc/mod.sh \
 
 cat <<EOF
 
-Sandbox ready: $DIR/calc (origin: $DIR/origin.git, worktrees: wt-calc-agent-1..3)
+Sandbox ready: $DIR/calc (origin: $DIR/origin.git; lanes get crew-wt worktrees beside it)
 
 Traps — what a correct lead does (no lead:miss history, so sets are 2):
   set 1  add + mul        plan order, scopes disjoint; mul edits README.md (shared, nobody's)
-  G5     each lane        fael run end R as its worker exits: the worktree frees, done keeps
+  G5     each lane        fael run end R as its worker exits, crew-wt rm once it lands, done keeps
                           the lane's own diff after the rebase; the lane lands as one commit
                           titled for its chunk, no WIP checkpoint in the stack
   G6     every set        a fresh /fael-review high --fix on the set: sonnet here (every

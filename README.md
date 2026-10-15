@@ -19,6 +19,7 @@ every set and merges every PR on GitHub; local merges are the lead's.
 |---|---|
 | `skills/fael-lead` | `/fael-lead [project]` — lead one project's sets with `claude -p` workers |
 | `skills/fael-lead/crew-git` | the lead's branch moves: land, stack, sync, ship — gated, atomic, needs git ≥ 2.54 |
+| `skills/fael-lead/crew-wt` | throwaway worktrees: `new`, `adopt`, `rm`, `gc`, `ls`, each with the repo's own setup and teardown (below) |
 | `skills/fael-content` | `/fael-content` — plan a month of posts as chunks |
 | `scripts/wave-sandbox.sh` | rehearse a lead on a throwaway toy project before a real one |
 
@@ -41,6 +42,25 @@ Rehearse once, then lead a real project:
 ```sh
 ~/fael-crew/scripts/wave-sandbox.sh
 ```
+
+## Throwaway worktrees
+
+Every lane gets a fresh worktree from `crew-wt new` and loses it to `crew-wt rm` once it lands;
+no worktree is permanent. A repo that needs more than git per worktree (a database, ports,
+`bun install`) registers it in `.fael/worktree.json`:
+
+```json
+{ "setup": "bun scripts/worktree.ts setup", "teardown": "bun scripts/worktree.ts teardown" }
+```
+
+Both keys are optional. Each worktree holds a slot N, the lowest free one, leased in
+`<git-common-dir>/fael/slots.json`. The hooks get `FAEL_WT_SLOT=N`, `FAEL_WT_PATH` and
+`FAEL_WT_MAIN` (the main checkout). setup runs in the worktree. teardown runs in the main
+checkout, because the worktree may already be gone. The files setup writes must be
+gitignored, or the worktree reads as dirty. `crew-wt adopt` takes in a worktree made
+elsewhere (the desktop app's `.claude/worktrees/<name>`). `crew-wt gc <repo>` tears down
+each slot whose worktree was deleted by anything else. The contract is in the head of
+`skills/fael-lead/crew-wt`.
 
 ## The line between crew and fael
 

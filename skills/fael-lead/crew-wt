@@ -1,0 +1,152 @@
+#!/bin/sh
+# crew-wt — throwaway worktrees: create, use, delete. Each repo registers its own setup and
+# teardown in .fael/worktree.json = { "setup": "<cmd>", "teardown": "<cmd>" } (both optional; no
+# file = only the git part). Each worktree crew-wt makes or adopts holds a slot N, leased in
+# <git-common-dir>/fael/slots.json ({"N": "<abs path>"}) under a mkdir lock, lowest free N first,
+# so a repo can derive ports and databases from it. Hooks get FAEL_WT_SLOT=N, FAEL_WT_PATH=<the
+# worktree>, FAEL_WT_MAIN=<the main checkout>; setup runs in the worktree, teardown in the main
+# checkout (the worktree may be gone). Each hook comes from the worktree's .fael/worktree.json,
+# else the main checkout's. What setup writes must be gitignored, or the worktree reads dirty.
+#
+#   crew-wt new   <repo> <branch> [--at <path>] [--from <ref>]
+#       git worktree add -b <branch> <path> <ref> (default origin/main) at <path> (default
+#       crew-<branch slug> beside the main checkout), lease a slot, run setup; a failed setup
+#       undoes it all (teardown, worktree, branch, slot)
+#   crew-wt adopt [<path>]
+#       lease a slot and run setup for a worktree made elsewhere (the desktop app's
+#       <repo>/.claude/worktrees/<name>); default the cwd's worktree
+#   crew-wt rm    <path|N>
+#       teardown, git worktree remove, free the slot; refuses uncommitted work and a worktree a
+#       claude process has its cwd in (N is a slot of the cwd's repo)
+#   crew-wt gc    <repo>
+#       teardown and free each slot whose worktree is gone (by hand, the app, wt-sync), printed
+#   crew-wt ls    <repo>
+#       slot · path · branch
+#
+# Exit: 0 ok · 2 a hook failed (new: undone · rm: nothing removed · gc: that slot kept)
+# · 4 refused (usage, not a worktree, the main checkout, dirty, live, slots locked)
+set -eu
+
+die() { c=$1; shift; echo "crew-wt: $*" >&2; exit "$c"; }
+
+verb=${1:-}
+[ -n "$verb" ] || die 4 "usage: see the head of $0"
+shift
+
+# repo <dir>: MAIN = its main checkout, F = its slot file
+repo() {
+  c=$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || die 4 "$1 is not in a git repo"
+  MAIN=$(git -C "$1" worktree list --porcelain | sed -n '1s/^worktree //p')
+  mkdir -p "$c/fael"
+  F=$c/fael/slots.json
+}
+# top <dir>: the worktree <dir> is in, as git spells it (symlinks resolved, as lsof sees it)
+top() { git -C "$1" rev-parse --show-toplevel 2>/dev/null || die 4 "$1 is not a git worktree"; }
+
+held=
+trap '[ -z "$held" ] || rmdir "$F.lock"' EXIT
+# ponytail: a crew-wt killed inside the lock leaves it; 10 s of waiting names the dir to remove
+lock() {
+  i=0
+  until mkdir "$F.lock" 2>/dev/null; do
+    i=$((i + 1)); [ $i -lt 100 ] || die 4 "slots locked: rmdir $F.lock if no crew-wt runs"; sleep 0.1
+  done
+  held=1
+}
+unlock() { rmdir "$F.lock"; held=; }
+slots() { cat "$F" 2>/dev/null || echo '{}'; }
+put() { slots | jq "$@" >"$F.tmp" && mv "$F.tmp" "$F"; }
+slot_of() { slots | jq -r --arg p "$1" 'to_entries[] | select(.value == $p) | .key' | head -1; }
+# lease <path>: N = its slot, the lowest free one when it has none
+lease() {
+  lock
+  N=$(slot_of "$1")
+  [ -n "$N" ] || { N=$(slots | jq -r '[range(1; 100000)] - (keys | map(tonumber)) | first')
+    put --arg n "$N" --arg p "$1" '.[$n] = $p'; }
+  unlock
+}
+free() { lock; put --arg n "$1" 'del(.[$n])'; unlock; }
+
+# hook <setup|teardown> <N> <path>
+hook() {
+  f=$3/.fael/worktree.json; [ -f "$f" ] || f=$MAIN/.fael/worktree.json; [ -f "$f" ] || return 0
+  cmd=$(jq -r --arg k "$1" '.[$k] // empty' "$f") || { echo "crew-wt: bad JSON in $f" >&2; return 1; }
+  [ -n "$cmd" ] || return 0
+  [ "$1" = setup ] && d=$3 || d=$MAIN
+  (cd "$d" && FAEL_WT_SLOT=$2 FAEL_WT_PATH=$3 FAEL_WT_MAIN=$MAIN sh -c "$cmd")
+}
+
+# live <path>: a process named claude* has its cwd in <path> (dotfiles bin/wt-sync's test)
+# ponytail: other agents (codex…) are not seen
+live() {
+  lsof -a -c claude -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' |
+    awk -v p="$1" '$0 == p || index($0, p "/") == 1 {f = 1} END {exit !f}'
+}
+
+case $verb in
+new)
+  [ $# -ge 2 ] || die 4 "new <repo> <branch> [--at <path>] [--from <ref>]"
+  repo "$1"; b=$2; shift 2
+  at= from=origin/main
+  while [ $# -gt 0 ]; do
+    [ $# -ge 2 ] || die 4 "$1 needs a value"
+    case $1 in --at) at=$2 ;; --from) from=$2 ;; *) die 4 "unknown option: $1" ;; esac
+    shift 2
+  done
+  [ -n "$at" ] || at=$(dirname "$MAIN")/crew-$(printf %s "$b" | tr -c 'A-Za-z0-9._-' -)
+  git -C "$MAIN" worktree add -q --no-track -b "$b" "$at" "$from" || die 4 "git worktree add failed, nothing made"
+  P=$(top "$at")
+  lease "$P"
+  hook setup "$N" "$P" || {
+    hook teardown "$N" "$P" || :
+    git -C "$MAIN" worktree remove --force "$P"; git -C "$MAIN" branch -q -D "$b"; free "$N"
+    die 2 "setup failed in slot $N; worktree, branch $b and slot undone"; }
+  echo "slot $N · $P · $b"
+  ;;
+adopt)
+  P=$(top "${1:-.}"); repo "$P"
+  [ "$P" != "$MAIN" ] || die 4 "$P is the main checkout, never a slot's"
+  N=$(slot_of "$P")
+  [ -z "$N" ] || { echo "slot $N · $P (already)"; exit 0; }
+  lease "$P"
+  hook setup "$N" "$P" || { free "$N"; die 2 "setup failed in $P; slot $N freed, the worktree kept"; }
+  echo "slot $N · $P"
+  ;;
+rm)
+  [ $# -eq 1 ] || die 4 "rm <path|N>"
+  case $1 in
+    *[!0-9]*) P=$(top "$1"); repo "$P"; N=$(slot_of "$P") ;;
+    *) repo .; N=$1; P=$(slots | jq -r --arg n "$N" '.[$n] // empty')
+      [ -n "$P" ] || die 4 "no slot $N"
+      [ -d "$P" ] || die 4 "slot $N's $P is gone: crew-wt gc" ;;
+  esac
+  [ "$P" != "$MAIN" ] || die 4 "$P is the main checkout"
+  [ -z "$(git -C "$P" status --porcelain)" ] || die 4 "$P has uncommitted work"
+  ! live "$P" || die 4 "a claude process runs in $P"
+  [ -z "$N" ] || hook teardown "$N" "$P" || die 2 "teardown failed for slot $N; nothing removed"
+  git -C "$MAIN" worktree remove "$P" || die 4 "git worktree remove $P failed${N:+; teardown ran, slot $N kept}"
+  [ -z "$N" ] || free "$N"
+  echo "removed $P${N:+ · slot $N freed}"
+  ;;
+gc)
+  [ $# -eq 1 ] || die 4 "gc <repo>"
+  repo "$1"; rc=0
+  for n in $(slots | jq -r 'keys[]'); do
+    P=$(slots | jq -r --arg n "$n" '.[$n]')
+    [ ! -d "$P" ] || continue
+    if hook teardown "$n" "$P"; then free "$n"; echo "freed slot $n · $P"
+    else echo "crew-wt: teardown failed for slot $n · $P; kept" >&2; rc=2; fi
+  done
+  git -C "$MAIN" worktree prune
+  exit $rc
+  ;;
+ls)
+  [ $# -eq 1 ] || die 4 "ls <repo>"
+  repo "$1"
+  slots | jq -r 'to_entries | sort_by(.key | tonumber)[] | "\(.key) \(.value)"' | while read -r n P; do
+    b=$(git -C "$P" symbolic-ref --short -q HEAD 2>/dev/null) || { [ -d "$P" ] && b=detached || b=gone; }
+    echo "$n · $P · $b"
+  done
+  ;;
+*) die 4 "unknown verb: $verb" ;;
+esac

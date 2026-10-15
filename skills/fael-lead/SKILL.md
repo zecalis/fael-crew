@@ -38,7 +38,9 @@ contract, a migration, auth, money) — never a whole set.
 ## G0 — Is there a set?
 
 Branch moves: `crew-git` next to this file; `…` = `--gate "<AGENTS.md gates, &&>" --in <gate wt>`, the
-gate worktree: the lowest-numbered free `wt-*` (lanes take the highest, G4.2), one for every `…` and G6.
+gate worktree for every `…` and G6: `crew-wt new <repo> plan/<project>/gate` (`crew-wt` next to this
+file; a throwaway worktree with the repo's own setup), or its `crew-plan-<project>-gate` row in
+`crew-wt ls <repo>` when one is there; removed at G8.
 First `crew-git sync <project> …` (G7.2), whatever the count below: it deletes a stack the owner merged.
 
 ```bash
@@ -109,13 +111,13 @@ input): the owner's, by a Q.
 One table, two lines a row, no uid, no header, no `—` column:
 
 ```
-1  schema-x   M opus     → wt-fael-agent-3  contract:x
+1  schema-x   M opus     contract:x
    fael-core/src/x.rs · first in plan order, its scope meets no other pick
-2  cli-x      S sonnet   → wt-fael-agent-2  pair #3
+2  cli-x      S sonnet   pair #3
    fael/src/x/ (near cap) · reads x only through contract:x
 ```
 
-Line two: scope · G2's why. `→` is its worktree (G4). Then each Q: `Q1 #2:` the problem in one
+Line two: scope · G2's why. Then each Q: `Q1 #2:` the problem in one
 line, one line per option, your pick as `(a)`. End with:
 
 ```
@@ -133,9 +135,10 @@ the foreground. A `crew-run` outlives Bash's 10-minute limit and lanes run toget
 with `run_in_background`; its exit wakes you, a subagent lead too, with its output. Never poll.
 
 1. `crew-git cut <project> <n>`: the set branch at the stack G0 synced (no stack: `origin/main`).
-2. Per lane, a worktree: a `worktrees[]` entry with `run: null` and no uncommitted work, highest
-   number first; never the one the owner talks in (crew-run refuses only the main one). Never
-   share `CARGO_TARGET_DIR`.
+2. Per lane, a throwaway worktree on its lane branch: `crew-wt new <repo> plan/<project>/lane/<uid>
+   --from plan/<project>/s<n>` (it prints the path; the repo's setup gives it its own slot,
+   ports and database). Never share `CARGO_TARGET_DIR`. Once the lane lands or goes out (G5),
+   `crew-wt rm <path>`: teardown, then the worktree goes; a resume (exit 1 or 2) keeps it.
 3. Per lane: `crew-run work <project> <n> <uid> --in <worktree> [--contract <id>]…`, one
    `--contract` per contract the lane builds against that its brief's `contracts:` block does
    not list; `--model` only if re-modelled. A pair: either uid, the brief carries both.
@@ -151,12 +154,12 @@ with `run_in_background`; its exit wakes you, a subagent lead too, with its outp
 - **0 finished** → its `outside, in <plan>/<label>: <path>` and `outside, unowned: <path>` lines
   are the scope check (`project.shared` excluded) — never diff it yourself. Unowned: kept only
   if the lane's gate fails without it, as `fael chunk note <uid> "kept <path>: <why>"` (done
-  hands it on); else on the lane in a free worktree `git restore -s plan/<project>/s<n> <path>`
+  hands it on); else on the lane in its worktree `git restore -s plan/<project>/s<n> <path>`
   and commit. In another open chunk: a Q before it lands. Then land it in plan order: `crew-git
   land <project> <n> <uid> -m "<chunk title>" --run <R> …` squashes it (WIP commits are resume
   checkpoints) with its chunk and run as trailers (G7.4 reads them) and moves the set only once
   the gates pass; a failure moves nothing.
-  - conflict in a `project.shared` file → on the lane in a free worktree `git rebase plan/<project>/s<n>`,
+  - conflict in a `project.shared` file → on the lane in its worktree `git rebase plan/<project>/s<n>`,
     resolve (lists keep both sides; goldens re-bless; `git diff --check` clean), land again;
   - conflict in a file a lane owns, or gates fail on top of another lane → out, its note says
     why, and a `lead:miss` issue (G8).
@@ -222,3 +225,6 @@ Misses: <classes, or none>. Open Qs: <each, or none>." \
   --title "lead <project>: set <n> stacked, next <labels>" --key lead:<project> \
   --files <paths the set touched, a,b> [--supersedes <last lead:<project> id>]
 ```
+
+Then free the gate worktree: `crew-wt rm <gate wt>` and `git branch -D plan/<project>/gate` (crew-git
+only ever detaches it, so the branch holds nothing). The next set's G0 makes a fresh one.

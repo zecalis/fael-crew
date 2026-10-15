@@ -35,6 +35,9 @@ owner did, and it judges nothing.
 - `skills/fael-content/SKILL.md`: `/fael-content`
 - `skills/fael-lead/crew-git`: the lead's branch moves (cut, land, stack, sync, ship), gated and
   atomic; `crew-git.test.sh` beside it is its check
+- `skills/fael-lead/crew-wt`: throwaway worktrees (new, adopt, rm, gc, ls), each repo's setup and
+  teardown from its `.fael/worktree.json`, a slot N leased in `<git-common-dir>/fael/slots.json`;
+  `crew-wt.test.sh` beside it is its check
 - `skills/fael-lead/crew-run`: the lead's processes (a worker per lane on claude or opencode, the set's reviewer):
   start, beat, run end, a one-line verdict, the brief paths a scope lacks, and fael chunk done
   from the stack's trailers; `crew-run.test.sh` beside it is its check
