@@ -129,8 +129,8 @@ work)
   brief=$logs/$uid.md
   # fael's run row keeps the model and client only when start is told them
   j=$(fael chunk show "$uid" --json)
-  model=${model:-$(echo "$j" | jq -r '.approval.model // .model_hint // empty')}
-  client=$(echo "$j" | jq -r '.approval.client // "claude"')
+  model=${model:-$(printf '%s\n' "$j" | jq -r '.approval.model // .model_hint // empty')}
+  client=$(printf '%s\n' "$j" | jq -r '.approval.client // "claude"')
   CLAUDE_CODE_SESSION_ID=$sid fael chunk start "$uid" ${model:+--model "$model"} --client "$client" >"$brief" || {
     git switch -q --detach; die 4 "fael refused the start of $uid: a wrong cut, back to G2"; }
   R=$(head -1 "$brief" | awk '{print $3}')
@@ -157,14 +157,14 @@ EOF
   wait $bp 2>/dev/null || :
   c=$(cost "$out")
   ends=$(fael run end "$R" ${c:+--cost "$c"})
-  echo "$ends"
+  printf '%s\n' "$ends"
   # fael prints outside lines only when a path left the scope: say the clean case too
   case $ends in *"outside, "*) ;; *) echo "outside: none" ;; esac
   git switch -q --detach
   # ponytail: a pair's wait or note may sit on its other uid; read both if pairs crash here
   j=$(fael chunk show "$uid" --json)
-  q=$(echo "$j" | jq -r '.wait.text // empty')
-  last=$(echo "$j" | jq -r --argjson b "$before" '.notes[$b:] | last // empty')
+  q=$(printf '%s\n' "$j" | jq -r '.wait.text // empty')
+  last=$(printf '%s\n' "$j" | jq -r --argjson b "$before" '.notes[$b:] | last // empty')
   if [ -n "$q" ]; then state=waited x=1
   elif ! failed "$rc" "$out" && [ "${last#finished:}" != "$last" ]; then state=finished x=0
   else state=crashed x=2; fi
@@ -232,9 +232,11 @@ scope)
   for u in $uids; do
     case $u in *[!A-Za-z0-9._-]*) die 4 "bad uid: $u" ;; esac
     j=$(fael chunk show "$u" --json) || die 4 "no chunk $u"
-    sc=$(for c in $u $(echo "$j" | jq -r '.pair[]'); do fael chunk show "$c" --json | jq -r '.scope[]'; done)
-    for f in $(echo "$j" | jq -r '.brief // empty' | grep -oE '[A-Za-z_.][A-Za-z0-9_.-]*(/[A-Za-z0-9_.-]+)*\.[A-Za-z][A-Za-z0-9]*' | sort -u); do
-      under "$f" "$sc $sh" || o="${o}unscoped $(echo "$j" | jq -r '.label // .uid'): $f
+    # a jq that fails here stops the check: it must never read as a clean "none"
+    b=$(printf '%s\n' "$j" | jq -r '.brief // empty') || die 4 "cannot read the brief of $u"
+    sc=$(for c in $u $(printf '%s\n' "$j" | jq -r '.pair[]'); do fael chunk show "$c" --json | jq -r '.scope[]'; done)
+    for f in $(printf '%s\n' "$b" | grep -oE '[A-Za-z_.][A-Za-z0-9_.-]*(/[A-Za-z0-9_.-]+)*\.[A-Za-z][A-Za-z0-9]*' | sort -u); do
+      under "$f" "$sc $sh" || o="${o}unscoped $(printf '%s\n' "$j" | jq -r '.label // .uid'): $f
 "
     done
   done
@@ -258,10 +260,10 @@ done)
     # wrote none
     for c in $u $(fael chunk show "$u" --json | jq -r '.pair[]'); do
       j=$(fael chunk show "$c" --json)
-      [ "$(echo "$j" | jq -r .state)" != done ] || { echo "$c already done"; continue; }
-      h=$(echo "$j" | jq -r "$fin")
+      [ "$(printf '%s\n' "$j" | jq -r .state)" != done ] || { echo "$c already done"; continue; }
+      h=$(printf '%s\n' "$j" | jq -r "$fin")
       # the lane branch went at land: a note naming it points at its squash in the PR instead
-      h=$(echo "${h:-${lane:-landed in $st}}${kept:+ · $kept}" | sed "s#plan/$p/lane/$u#$k (PR $pr)#g")
+      h=$(printf '%s\n' "${h:-${lane:-landed in $st}}${kept:+ · $kept}" | sed "s#plan/$p/lane/$u#$k (PR $pr)#g")
       fael chunk done "$c" "$h" --pr "$pr" ${r:+--run "$r"}
     done
   done

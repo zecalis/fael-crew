@@ -17,7 +17,8 @@
 #       and a pushed stack origin deleted, as GitHub does on merge);
 #       refuses while a plan/<p>/s<n> exists, since a replay would strand it
 #   crew-git ship  <p> --gate <cmd> --in <wt>
-#       sync, then push the stack with a lease; the PR stays the lead's
+#       sync, then push the stack with a lease and keep the pushed tip in refs/crew/plan/<p>/stack;
+#       the PR stays the lead's
 #
 # stack and sync also delete each plan/<p>/lane/* whose changes the stack (or origin/main)
 # already holds and no worktree has checked out. A deletion prints its restore line; that
@@ -70,6 +71,8 @@ if [ -n "$wt" ]; then
 fi
 
 R=refs/heads/plan/$p
+# the stack ship last pushed: outside refs/remotes, so no fetch --prune drops it
+W=refs/crew/plan/$p/stack
 log=$(common)/crew-git-$p.log
 sha() { git rev-parse -q --verify "$1^{commit}"; }
 short() { git rev-parse --short "$1"; }
@@ -139,16 +142,18 @@ sync_stack() {
   st=$R/stack
   # GitHub deletes a merged PR's head (delete_branch_on_merge): a pushed stack origin no longer
   # holds was merged. Its stale ref goes too, or ship's lease expects a branch that is gone.
+  # Another fetch --prune can drop that ref before sync sees it, so ship's own record $W of what
+  # it pushed stands in for it.
   # ponytail: a PR closed unmerged and deleted by hand reads the same; drop prints restore lines
-  gone=$(sha "refs/remotes/origin/plan/$p/stack") || gone=
-  if [ -n "$gone" ]; then
-    on=$(git ls-remote origin "refs/heads/plan/$p/stack")
-    [ -z "$on" ] && git update-ref -d "refs/remotes/origin/plan/$p/stack" "$gone" || gone=
+  gone=$(sha "refs/remotes/origin/plan/$p/stack") || gone=$(sha "$W") || gone=
+  if [ -n "$gone" ] && [ -n "$(git ls-remote origin "refs/heads/plan/$p/stack")" ]; then gone=
+  elif o=$(sha "refs/remotes/origin/plan/$p/stack"); then
+    git update-ref -d "refs/remotes/origin/plan/$p/stack" "$o"
   fi
   K=$(sha $st) || { tx "$(lanes "$M")"; echo "no stack"; return; }
   [ -z "$(holder $st)" ] || die 4 "plan/$p/stack is checked out in $(holder $st)"
   drop() { tx "delete $st $K
-$(lanes "$M")"; echo "stack merged into origin/main"; }
+$(lanes "$M")"; git update-ref -d "$W" 2>/dev/null || :; echo "stack merged into origin/main"; }
   git merge-base --is-ancestor "$K" "$M" && { drop; return; }
   git merge-base --is-ancestor "$M" "$K" && { tx "$(lanes "$K")"; echo "stack up to date on origin/main"; return; }
   # a rewrite would strand a set cut from the old tip
@@ -157,6 +162,10 @@ $(lanes "$M")"; echo "stack merged into origin/main"; }
   base=$(git merge-base "$K" "$M")
   # the pushed stack, once merged (a squash too, or gone from origin), is where the replay starts
   P=$(sha "refs/remotes/origin/plan/$p/stack") || P=$gone
+  # a stack shipped before $W existed, its ref pruned: the newest stack commit main already holds
+  # stands in for the pushed head (an owner's tweak in the squash hides that commit, so replay)
+  [ -n "$P" ] || P=$(for c in $(git rev-list --first-parent "$base..$K"); do
+    merged "$c" "$M" && { echo "$c"; break; }; done || :)
   [ -n "$P" ] && git merge-base --is-ancestor "$P" "$K" && { [ -n "$gone" ] || merged "$P" "$M"; } && base=$P
   [ -z "$(git rev-list --merges "$base..$K")" ] || die 4 "plan/$p/stack holds a merge commit"
   new=$M
@@ -223,6 +232,7 @@ ship)
   P=$(sha "refs/remotes/origin/plan/$p/stack") || P=
   git push -q --force-with-lease="refs/heads/plan/$p/stack:$P" origin "$K:refs/heads/plan/$p/stack" ||
     die 3 "origin's plan/$p/stack moved since the fetch; nothing pushed"
+  git update-ref "$W" "$K"
   echo "pushed plan/$p/stack $(short "$K")"
   ;;
 esac
