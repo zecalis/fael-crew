@@ -41,9 +41,10 @@ owner did, and it judges nothing.
 - `skills/fael-lead/crew-run`: the lead's processes (a worker per lane on claude or opencode, the set's reviewer):
   start, beat, run end, a one-line verdict, the brief paths a scope lacks, push pr in one call
   (ship: gates, push, the PR, then fael chunk done from the stack's trailers); `crew-run.test.sh` beside it is its check
-- `skills/fael-lead/crew-pr`: push pr for the current branch of any repo, no lead and no plan stack
-  (clean-tree, not-merged and gate checks by exit code, title/body from git, push, PR, `fael chunk done`
-  from trailers); `crew-pr.test.sh` beside it is its check
+- `bin/git-ship`: `git ship` once linked onto PATH, push pr for the current branch of any repo, no lead and
+  no plan stack (clean-tree, not-merged, rebase onto origin/main with per-repo conflict rules from
+  `.fael/worktree.json`, gate by exit code, title/body from git, force-with-lease push, PR,
+  `fael chunk done` from trailers); `bin/git-ship.test.sh` beside it is its check
 - `scripts/wave-sandbox.sh`: rehearse a lead (sets, review, stack, push pr) on a toy project;
   `wave-sandbox.test.sh` beside it builds one and runs crew-run and crew-git through it, no claude
 
