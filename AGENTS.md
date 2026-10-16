@@ -85,5 +85,7 @@ before you use it on a real plan.
 - Use English in commits and PRs. PR titles follow Conventional Commits:
   `type(scope): summary`.
 - Never merge a PR. The owner reviews and merges.
+- push pr: `scripts/wave-sandbox.sh` rehearsal when a skill changed (see above), then `git fetch && git rebase
+  origin/main` → `/fael-review` → `git ship` (gate: `scripts/gate.sh`, from `.fael/worktree.json`); report the PR number.
 - Each agent works in its own worktree, `wt-crew-agent-N` beside this checkout (fael's
   `wt-<repo>-agent-N`; wt-sync never removes a `wt-*`). Never switch branches in another agent's.
