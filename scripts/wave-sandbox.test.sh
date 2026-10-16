@@ -1,6 +1,6 @@
 #!/bin/sh
 # Check scripts/wave-sandbox.sh builds a sandbox the lead's helpers run on, with no claude: the
-# build and its gate, pr.sh, crew-run scope on the leaked-cut trap, and crew-git from cut to the
+# build and its gate, the stand-in gh, crew-run scope on the leaked-cut trap, and crew-git from cut to the
 # sync after the owner squash-merges the stack and main moves on (vela PR 502's shape).
 # The rehearsal itself, a /fael-lead session with you as owner, is still the script's Run line.
 set -eu
@@ -21,28 +21,36 @@ cd "$D/calc"
 uid() { fael plan export sim --json | jq -r --arg l "$1" '.chunks[] | select(.label == $l) | .uid'; }
 [ "$(fael plan export sim --json | jq '.chunks | length')" = 7 ] || fail "plan sim lacks its 7 chunks"
 
-# pr.sh pushes nothing: a branch origin lacks is refused
+# the stand-in gh pushes nothing: a branch origin lacks is refused
+export PATH="$D/bin:$PATH"
 git branch unpushed
-! ./pr.sh unpushed "t" </dev/null >/dev/null 2>&1 || fail "pr.sh took a branch origin lacks"
+! gh pr create --head unpushed --title t --body-file /dev/null >/dev/null 2>&1 || fail "gh took a branch origin lacks"
 
 # the leaked-cut trap: sub's brief names calc/add.sh outside its scope; README.md is shared
 "$CR" scope calc "$(uid sub)" >"$T/out" 2>&1 || { cat "$T/out" >&2; fail "crew-run scope"; }
 has "unscoped sub: calc/add.sh"
 ! grep -q README.md "$T/out" || fail "scope listed the shared README.md"
 
-# set 1 by hand (add), stacked, shipped and filed with pr.sh
+# set 1 by hand (add), stacked, then push pr: crew-run ship, its gate from .fael/worktree.json
 git worktree add -q --detach "$D/wt-calc-agent-1" origin/main
 git worktree add -q --detach "$D/wt-calc-agent-2" origin/main
 A=$(uid add)
 "$CG" cut calc 1 >/dev/null
 git -C "$D/wt-calc-agent-2" switch -q -c "plan/calc/lane/$A" plan/calc/s1
-(cd "$D/wt-calc-agent-2" && mkdir -p calc && printf 'echo $(($1 + $2))\n' > calc/add.sh && git add -A && git commit -qm "wip add")
+fael chunk approve "$A" >/dev/null
+(cd "$D/wt-calc-agent-2" && CLAUDE_CODE_SESSION_ID=t fael chunk start "$A" >/dev/null &&
+  mkdir -p calc && printf 'echo $(($1 + $2))\n' > calc/add.sh && git add -A && git commit -qm "wip add" &&
+  fael chunk note "$A" "finished: add works" >/dev/null)
 git -C "$D/wt-calc-agent-2" switch -q --detach
-"$CG" land calc 1 "$A" -m "feat(calc): add" --gate ./test.sh --in "$D/wt-calc-agent-1" >/dev/null
+"$CG" land calc 1 "$A" -m "feat(calc): add" --run "$(fael chunk show "$A" --json | jq -r .run.id)" --in "$D/wt-calc-agent-1" >/dev/null
 git -C "$D/wt-calc-agent-1" switch -q --detach plan/calc/s1
-"$CG" stack calc 1 --gate ./test.sh --in "$D/wt-calc-agent-1" >/dev/null
-"$CG" ship calc --gate ./test.sh --in "$D/wt-calc-agent-1" >/dev/null
-[ "$(./pr.sh plan/calc/stack "feat(calc): add" </dev/null)" = 1 ] || fail "pr.sh did not file PR 1"
+"$CG" stack calc 1 --in "$D/wt-calc-agent-1" >/dev/null
+echo "set 1: add" >"$T/body.md"
+"$CR" ship calc -m "feat(calc): add" --body "$T/body.md" --in "$D/wt-calc-agent-1" >"$T/out" 2>&1 ||
+  { cat "$T/out" >&2; fail "crew-run ship"; }
+has "PR 1 · plan/calc/stack"
+grep -q "set 1: add" "$D/origin.git/prs.1.md" || fail "PR 1 lacks the lead's body"
+[ "$(fael chunk show "$A" --json | jq -r .state)" = done ] || fail "ship left add undone"
 
 # the owner squash-merges it, main changes add.sh after, the head is deleted and pruned
 git clone -q "$D/origin.git" "$T/owner"

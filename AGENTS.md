@@ -39,8 +39,8 @@ owner did, and it judges nothing.
   teardown from its `.fael/worktree.json`, a slot N leased in `<git-common-dir>/fael/slots.json`;
   `crew-wt.test.sh` beside it is its check
 - `skills/fael-lead/crew-run`: the lead's processes (a worker per lane on claude or opencode, the set's reviewer):
-  start, beat, run end, a one-line verdict, the brief paths a scope lacks, and fael chunk done
-  from the stack's trailers; `crew-run.test.sh` beside it is its check
+  start, beat, run end, a one-line verdict, the brief paths a scope lacks, push pr in one call
+  (ship: gates, push, the PR, then fael chunk done from the stack's trailers); `crew-run.test.sh` beside it is its check
 - `scripts/wave-sandbox.sh`: rehearse a lead (sets, review, stack, push pr) on a toy project;
   `wave-sandbox.test.sh` beside it builds one and runs crew-run and crew-git through it, no claude
 

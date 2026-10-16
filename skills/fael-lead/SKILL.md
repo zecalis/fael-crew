@@ -39,8 +39,9 @@ contract, a migration, auth, money) — never a whole set.
 
 ## G0 — Is there a set?
 
-Branch moves: `crew-git` next to this file; `…` = `--gate "<AGENTS.md gates, &&>" --in <gate wt>`, the
-gate worktree for every `…` and G6: `crew-wt new <repo> plan/<project>/gate` (`crew-wt` next to this
+Branch moves: `crew-git` next to this file; `…` = `--in <gate wt>`, the gates read from `gate` in
+the repo's `.fael/worktree.json` (none there: add `--gate "<AGENTS.md gates, &&>"`, and ask the
+owner for the key in G3), the gate worktree for every `…` and G6: `crew-wt new <repo> plan/<project>/gate` (`crew-wt` next to this
 file; a throwaway worktree with the repo's own setup), or its `crew-plan-<project>-gate` row in
 `crew-wt ls <repo>` when one is there; removed at G8.
 First `crew-git sync <project> …` (G7.2), whatever the count below: it deletes a stack the owner merged.
@@ -188,14 +189,18 @@ could not fix → that lane out (G5), a `lead:miss:review` issue either way.
    the stack's tip at G4.1: it does not wait on the owner.
 2. At G0: `crew-git sync <project> …` replays the stack onto `origin/main`, minus what merged.
 3. **Ship** when the owner says `push pr` — or ask once when the stack holds ~10 chunks, a
-   breaking change, or the next set waits on a stacked chunk's `after`. `crew-git ship <project> …`
-   (sync, gates, a lease-guarded push), then one PR by the repo's `push pr` rules (Windows CI per
-   AGENTS.md). Body per set: lanes (uid, hand-off), lanes out and why, the review's verdict,
-   **Removed / Breaking** (deleted files, files that lost 50+ lines, any CLI, schema or URL key
-   renamed or removed, with its lane), **Merge danger**: one- or two-way door · blast radius in a word.
-4. Then `crew-run done <project> --pr <N>`: it dones every chunk the stack's trailers name, its
-   hand-off the lane's `finished:` note; a rerun skips what is done. Then re-file the G8 note
-   with `stack: PR <N>`. The PR's merge on GitHub is the owner's, always.
+   breaking change, or the next set waits on a stacked chunk's `after`. Write the body to a file,
+   per set: lanes (uid, hand-off), lanes out and why, the review's verdict, **Breaking** (any CLI,
+   schema or URL key renamed or removed, with its lane), **Merge danger**: one- or two-way door ·
+   blast radius in a word. Then `crew-run ship <project> -m "<type(scope): summary>" --body <file>
+   --in <gate wt>`: crew-git ship (sync, `gate` and `e2e` from `.fael/worktree.json`, a
+   lease-guarded push), one PR for the stack with a **Removed** section from the diff appended,
+   then G7.4. A rerun gates again and updates the same PR. Exit: crew-git's table, nothing pushed ·
+   5, gh failed after the push: rerun ship. What the repo's AGENTS.md adds to `push pr` (Windows
+   CI) is yours after it.
+4. Ship ends in `crew-run done <project> --pr <N>`: it dones every chunk the stack's trailers
+   name, its hand-off the lane's `finished:` note; a rerun skips what is done. Then re-file the G8
+   note with `stack: PR <N>`. The PR's merge on GitHub is the owner's, always.
 
 ## G8 — Learn, then hand back
 

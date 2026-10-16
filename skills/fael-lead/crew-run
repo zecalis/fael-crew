@@ -24,11 +24,17 @@
 #       on origin/main..plan/<p>/stack (crew-git land wrote them) and its pair, the hand-off the
 #       lane's finished: note and its "kept <path>: <why>" notes; chunks already done are skipped,
 #       so a rerun is safe
+#   crew-run ship   <p> -m <title> --body <file> --in <wt>
+#       push pr: crew-git ship gated by "gate" && "e2e" from .fael/worktree.json (<wt>'s, else the
+#       main checkout's), one PR for plan/<p>/stack (opened, or its title and body set when one is
+#       open), <file> plus a Removed section from the diff (deleted files, files that lost 50+
+#       lines), then done --pr N; a rerun re-gates, then updates the same PR
 #
 # Exit, its own table (crew-git's 1 and 2 mean other things): 0 finished · 1 waited on the
 # owner · 2 crashed (claude failed, no new "finished:" note, or a reviewer left uncommitted
 # work) · 4 refused (usage, fael < 0.58.0, missing ref, dirty or main worktree, fael refused the start, stack not
-# pushed); done stops at the first fael refusal with its exit
+# pushed); done stops at the first fael refusal with its exit; ship passes crew-git's exit
+# through (nothing pushed), 5 when gh failed after the push (rerun ship)
 set -eu
 
 die() { c=$1; shift; echo "crew-run: $*" >&2; exit "$c"; }
@@ -48,24 +54,26 @@ n= uid=
 case $verb in
   work) [ $# -ge 2 ] || die 4 "work <p> <n> <uid> …"; n=$1 uid=$2; shift 2 ;;
   review) [ $# -ge 1 ] || die 4 "review <p> <n> …"; n=$1; shift ;;
-  done) ;;
+  done | ship) ;;
   scope) [ $# -ge 1 ] || die 4 "scope <p> <uid>…"; uids=$*; set -- ;;
   *) die 4 "unknown verb: $verb" ;;
 esac
 case $n in *[!0-9]*) die 4 "bad set number: $n" ;; esac
 case $uid in *[!A-Za-z0-9]*) die 4 "bad uid: $uid" ;; esac
-wt= model= contracts= lanes= pr=
+wt= model= contracts= lanes= pr= title= body=
 while [ $# -gt 0 ]; do
   [ $# -ge 2 ] || die 4 "$1 needs a value"
   case $1 in
     --in) wt=$2 ;; --model) model=$2 ;; --contract) contracts="$contracts $2" ;; --lanes) lanes=$2 ;;
-    --pr) pr=$2 ;; *) die 4 "unknown option: $1" ;;
+    --pr) pr=$2 ;; -m) title=$2 ;; --body) body=$2 ;; *) die 4 "unknown option: $1" ;;
   esac
   shift 2
 done
 case $verb in done | scope) ;; *) [ -n "$wt" ] || die 4 "needs --in <worktree>" ;; esac
 [ "$verb" != review ] || [ -n "$lanes" ] || die 4 "review needs --lanes <uid,…>"
 [ "$verb" != done ] || case $pr in '' | *[!0-9]*) die 4 "done needs --pr <N>" ;; esac
+[ "$verb" != ship ] || { [ -n "$title" ] && [ -f "$body" ]; } || die 4 "ship needs -m <title> --body <file>"
+case $body in '' | /*) ;; *) body=$PWD/$body ;; esac
 
 if [ -n "$wt" ]; then
   wt=$(git -C "$wt" rev-parse --show-toplevel 2>/dev/null) || die 4 "$wt is not a git worktree"
@@ -270,5 +278,32 @@ done)
       fael chunk done "$c" "$h" --pr "$pr" ${r:+--run "$r"}
     done
   done
+  ;;
+ship)
+  st=plan/$p/stack
+  f=$wt/.fael/worktree.json
+  [ -f "$f" ] || f=$(git worktree list --porcelain | sed -n '1s/^worktree //p')/.fael/worktree.json
+  g=$(jq -r '[.gate, .e2e] | map(select(.) | "(\(.))") | join(" && ")' "$f" 2>/dev/null) || g=
+  [ -n "$g" ] || die 4 "no gate in $f: add {\"gate\": \"<cmd>\", \"e2e\": \"<cmd>\"}"
+  rc=0; "$(dirname "$0")/crew-git" ship "$p" --gate "$g" --in "$wt" || rc=$?
+  [ "$rc" = 0 ] || exit "$rc"
+  # the mechanical half of Removed / Breaking; renames of a CLI, schema or URL key stay the body's
+  lost=$(git diff --name-only --diff-filter=D "origin/main...$st" | sed 's/^/- deleted: /'
+    git diff --numstat --diff-filter=M "origin/main...$st" | awk '$2 >= 50 {print "- lost " $2 " lines: " $3}')
+  b=$logs/pr-$p.md
+  { cat "$body"; printf '\n## Removed (from the diff)\n\n%s\n' "${lost:-none}"; } >"$b"
+  l=$(gh pr list --head "$st" --state open --json number -q '.[].number') ||
+    die 5 "gh pr list failed; $st is pushed, rerun ship"
+  n=$(printf '%s\n' "$l" | head -1)
+  if [ -n "$n" ]; then
+    gh pr edit "$n" --title "$title" --body-file "$b" >/dev/null || die 5 "gh pr edit $n failed; rerun ship"
+  else
+    u=$(gh pr create --head "$st" --base main --title "$title" --body-file "$b") ||
+      die 5 "gh pr create failed; $st is pushed, rerun ship"
+    n=${u##*/}
+  fi
+  case $n in '' | *[!0-9]*) die 5 "gh gave no PR number: ${u:-$l}" ;; esac
+  echo "PR $n · $st $(git rev-parse --short "$st")"
+  exec "$0" done "$p" --pr "$n" --in "$wt"
   ;;
 esac
