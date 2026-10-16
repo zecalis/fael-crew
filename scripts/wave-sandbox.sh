@@ -3,8 +3,8 @@
 # Usage: scripts/wave-sandbox.sh [dir]   (default: ~/fael-wave-sandbox; never under a temp
 # dir — fael board skips those). Again from scratch: fael board --drop <dir>/calc; rm -rf <dir>.
 # Builds a toy project "calc" — repo, bare origin — and a plan "sim" of seven
-# chunks, each made to hit one gate. No GitHub: ./pr.sh stands in for gh pr create, and the
-# repo's AGENTS.md says so. Its fael.db is the sandbox's own; run through <dir>/sandbox.sh and
+# chunks, each made to hit one gate. No GitHub: <dir>/bin/gh stands in for gh pr list, create
+# and edit, on sandbox.sh's PATH, and the repo's AGENTS.md says so. Its fael.db is the sandbox's own; run through <dir>/sandbox.sh and
 # fael's state (board registry, stats, the machine-wide running count) is too.
 set -eu
 DIR=${1:-$HOME/fael-wave-sandbox}
@@ -15,11 +15,38 @@ cat > "$DIR/sandbox.sh" <<'EOF'
 # Runs a command with the sandbox's own fael state; agents it starts inherit it.
 #   ./sandbox.sh claude      ./sandbox.sh fael board
 #   open -n <FaelBoard.app> --env FAEL_STATE_DIR=<this dir>/.state
-export FAEL_STATE_DIR="$(cd "$(dirname "$0")" && pwd)/.state"
+d=$(cd "$(dirname "$0")" && pwd)
+export FAEL_STATE_DIR="$d/.state" PATH="$d/bin:$PATH"
 mkdir -p "$FAEL_STATE_DIR"
 exec "$@"
 EOF
 chmod +x "$DIR/sandbox.sh"
+mkdir -p "$DIR/bin"
+cat > "$DIR/bin/gh" <<'EOF'
+#!/bin/sh
+# Stand-in for gh pr list|create|edit: PRs in origin.git/prs ("<n> <head>" per line), each
+# title and body in prs.<n>.title and prs.<n>.md. Like gh, create pushes nothing.
+set -eu
+[ "${1:-}" = pr ] || { echo "sandbox gh: only gh pr list|create|edit" >&2; exit 1; }
+f=$(git remote get-url origin)/prs; touch "$f"; v=$2; shift 2
+h= t= b= n=
+while [ $# -gt 0 ]; do
+  case $1 in --head) h=$2; shift ;; --title) t=$2; shift ;; --body-file) b=$2; shift ;;
+    --base | --state | --json | -q) shift ;; *) n=$1 ;; esac
+  shift
+done
+case $v in
+list) awk -v h="$h" '$2 == h {print $1}' "$f" ;;
+create)
+  [ "$(git ls-remote origin "refs/heads/$h" | cut -f1)" = "$(git rev-parse "$h")" ] ||
+    { echo "sandbox gh: origin does not hold $h at its local tip; push it first" >&2; exit 1; }
+  n=$(($(wc -l <"$f") + 1)); echo "$n $h" >>"$f"; echo "$t" >"$f.$n.title"; cp "$b" "$f.$n.md"
+  echo "https://github.com/sandbox/calc/pull/$n" ;;
+edit) echo "$t" >"$f.$n.title"; cp "$b" "$f.$n.md" ;;
+*) echo "sandbox gh: no pr $v" >&2; exit 1 ;;
+esac
+EOF
+chmod +x "$DIR/bin/gh"
 export FAEL_STATE_DIR="$DIR/.state"
 mkdir -p "$FAEL_STATE_DIR"
 git init -q --bare "$DIR/origin.git"
@@ -35,30 +62,17 @@ Tiny shell calculator. Each operation is `calc/<op>.sh A B` and prints the resul
 ## Operations
 EOF
 printf 'README.md\n' > .fael/shared
+# the gates crew-git and crew-run ship read; a real repo adds "e2e"
+printf '{ "gate": "./test.sh" }\n' > .fael/worktree.json
 # fael doctor asks each shared path for a merge attribute: lanes append, union keeps both
 printf 'README.md merge=union\n' > .gitattributes
 cat > AGENTS.md <<'EOF'
 # calc — agent rules
 
-Gates: `./test.sh` (exit 0). Commits and PRs in English.
+Gates: `./test.sh` (exit 0), also `gate` in .fael/worktree.json. Commits and PRs in English.
 
-No GitHub here. `push pr` = run the gates, push the branch, then `./pr.sh <branch> "<title>" < body.md`:
-like gh pr create it pushes nothing (it refuses a branch origin does not hold at its local tip),
-files the PR in origin.git/prs and prints its number N — use N
-wherever a PR number goes (`fael chunk done --pr N`). Never merge: the owner does.
-EOF
-cat > pr.sh <<'EOF'
-#!/bin/sh
-# Stand-in for gh pr create: files the PR for <branch> (body from stdin), prints its number.
-# Pushes nothing, so a lease-guarded push before it stays the last word.
-set -eu
-[ "$(git ls-remote origin "refs/heads/$1" | cut -f1)" = "$(git rev-parse "$1")" ] ||
-  { echo "pr.sh: origin does not hold $1 at its local tip; push it first" >&2; exit 1; }
-p=$(git remote get-url origin)/prs
-printf '%s\t%s\n' "$1" "$2" >> "$p"
-n=$(wc -l < "$p" | tr -d ' ')
-cat > "$p.$n.md"
-echo "$n"
+No GitHub here: `gh` on sandbox.sh's PATH is a stand-in that files PRs in origin.git/prs.
+Never merge: the owner does.
 EOF
 cat > test.sh <<'EOF'
 #!/bin/sh
@@ -74,7 +88,7 @@ t() { got=$(sh "calc/$1.sh" "$2" "$3"); [ "$got" = "$4" ] || { echo "FAIL $1 $2 
 [ -f calc/cube.sh ] && t cube 2 0 8
 echo ok
 EOF
-chmod +x test.sh pr.sh
+chmod +x test.sh
 printf '.fael/log/\n' > .gitignore
 git add -A
 git commit -qm "calc skeleton"
@@ -127,7 +141,7 @@ Traps — what a correct lead does (no lead:miss history, so sets are 2):
   set 3  div alone        sq waits on pow, stacked not done: div is the one ready, a set of 1
                           (still checked against the stack, still a set table). B=0 is
                           yours: a Q in the set table, its answer a chunk note
-  push pr               ./pr.sh, one PR for the stack; then chunk done --pr N per stacked chunk
+  push pr               crew-run ship: gates, push, one PR (the stand-in gh), done --pr N
   set 4  sq alone         ready once pow is done: a chain moves one link per push pr; cube
                           the same after the next one
   G8     a miss           a lead:miss:<class> issue, never a skill edit; the lead:calc note

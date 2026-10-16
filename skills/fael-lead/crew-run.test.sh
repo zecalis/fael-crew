@@ -54,6 +54,27 @@ echo '{"type":"step_start","sessionID":"ses_x"}'
 echo '{"type":"text","sessionID":"ses_x","part":{"text":"done"}}'
 EOF
 chmod +x "$T/bin/opencode"
+cat >"$T/bin/gh" <<'EOF'
+#!/bin/sh
+# stub: gh pr list|create|edit over $STUB_DIR/prs ("<n> <head>" per line), prs.<n>.title and .md
+[ "$STUB" != ghfail ] || exit 1
+f=$STUB_DIR/prs; touch "$f"; v=$2; shift 2
+h= t= b= n=
+while [ $# -gt 0 ]; do
+  case $1 in --head) h=$2; shift ;; --title) t=$2; shift ;; --body-file) b=$2; shift ;;
+    --base | --state | --json | -q) shift ;; *) n=$1 ;; esac
+  shift
+done
+case $v in
+list) awk -v h="$h" '$2 == h {print $1}' "$f" ;;
+create) # like gh, pushes nothing: origin must hold the head at its local tip
+  [ "$(git ls-remote origin "refs/heads/$h" | cut -f1)" = "$(git rev-parse "$h")" ] || exit 1
+  n=$(($(wc -l <"$f") + 1)); echo "$n $h" >>"$f"; echo "$t" >"$f.$n.title"; cp "$b" "$f.$n.md"
+  echo "https://github.com/o/r/pull/$n" ;;
+edit) echo "$t" >"$f.$n.title"; cp "$b" "$f.$n.md" ;;
+esac
+EOF
+chmod +x "$T/bin/gh"
 export PATH="$T/bin:$PATH"
 
 git init -q --bare "$T/origin.git"
@@ -199,6 +220,43 @@ kB=$(git log --format=%h --grep "^lane $B\$" plan/p/stack)
 expect 0 "$CR" done p --pr 5 --in "$T/wt-t-agent-2"
 has "$A already done" "$T/out"
 has "$Q already done" "$T/out"
+# ship: push pr in one call. No gate in .fael/worktree.json: refused, nothing pushed
+echo "lanes A B P" >"$T/body.md"
+expect 4 "$CR" ship p -m "feat: abp" --body "$T/body.md" --in "$T/wt-t-agent-2"
+has 'no gate in' "$T/out"
+# main gains old and big (60 lines) under the stack; gate and e2e both gate it, each by its exit
+seq 60 >big; echo o >old; git add big old; git commit -qm "main: big old"; git push -q origin main
+mkdir -p .fael
+printf '{"gate": "echo g >>%s/gates", "e2e": "echo e >>%s/gates; exit $E2E"}' "$T" "$T" >.fael/worktree.json
+E2E=3 expect 2 "$CR" ship p -m "feat: abp" --body "$T/body.md" --in "$T/wt-t-agent-2"
+has "gate exit 3" "$T/out"
+[ ! -s "$T/prs" ] || fail "a failed e2e filed a PR"
+E2E=0 STUB=ghfail expect 5 "$CR" ship p -m "feat: abp" --body "$T/body.md" --in "$T/wt-t-agent-2"
+has "rerun ship" "$T/out"
+STUB= # sh keeps an assignment made before a function call
+# a relative --body is the caller's
+(cd "$T" && E2E=0 expect 0 "$CR" ship p -m "feat: abp" --body body.md --in "$T/wt-t-agent-2")
+has "PR 1 · plan/p/stack" "$T/out"
+has "$A already done" "$T/out"
+[ "$(git rev-parse plan/p/stack)" = "$(git rev-parse origin/plan/p/stack)" ] || fail "ship left the stack unpushed"
+git merge-base --is-ancestor origin/main plan/p/stack || fail "ship did not rebase the stack onto main"
+has "lanes A B P" "$T/prs.1.md"
+has "none" "$T/prs.1.md"
+grep -q '^g$' "$T/gates" && grep -q '^e$' "$T/gates" || fail "gate or e2e did not run"
+# the next set deletes old and trims big; crew-git takes the gate from the file too; a rerun
+# updates the same PR, its Removed from the diff
+expect 0 "$CG" cut p 2
+git -C "$T/wt-t-agent-2" switch -q --detach plan/p/s2
+(cd "$T/wt-t-agent-2" && git rm -q old && echo 1 >big && git commit -qam "trim")
+E2E=0 expect 0 "$CG" stack p 2 --in "$T/wt-t-agent-2"
+E2E=0 expect 0 "$CR" ship p -m "feat: abp, trim" --body "$T/body.md" --in "$T/wt-t-agent-2"
+has "PR 1 · plan/p/stack" "$T/out"
+[ "$(wc -l <"$T/prs" | tr -d ' ')" = 1 ] || fail "a rerun opened a second PR"
+has "feat: abp, trim" "$T/prs.1.title"
+has "- deleted: old" "$T/prs.1.md"
+has "- lost 59 lines: big" "$T/prs.1.md"
+rm .fael/worktree.json
+
 # a trailer naming a run fael no longer holds: done stops non-zero, the chunk stays open
 expect 0 "$CG" cut p 2
 git -C "$T/wt-t-agent-2" switch -q --detach plan/p/s2

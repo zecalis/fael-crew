@@ -18,7 +18,10 @@
 #       refuses while a plan/<p>/s<n> exists, since a replay would strand it
 #   crew-git ship  <p> --gate <cmd> --in <wt>
 #       sync, then push the stack with a lease and keep the pushed tip in refs/crew/plan/<p>/stack;
-#       the PR stays the lead's
+#       crew-run ship files the PR
+#
+# --gate defaults to "gate" in .fael/worktree.json (crew-wt's file: <wt>'s, else the main
+# checkout's), so the repo names its gates once.
 #
 # stack and sync also delete each plan/<p>/lane/* whose changes the stack (or origin/main)
 # already holds and no worktree has checked out. A deletion prints its restore line; that
@@ -56,7 +59,6 @@ done
 case $n in *[!0-9]*) die 4 "bad set number: $n" ;; esac
 case $uid$run in *[!A-Za-z0-9]*) die 4 "bad uid or run: $uid $run" ;; esac
 [ "$verb" != land ] || [ -n "$msg" ] || die 4 "land needs -m <title>"
-[ "$verb" = cut ] || { [ -n "$gate" ] && [ -n "$wt" ]; } || die 4 "needs --gate <cmd> --in <worktree>"
 
 common() { git -C "${1:-.}" rev-parse --path-format=absolute --git-common-dir; }
 if [ -n "$wt" ]; then
@@ -69,6 +71,13 @@ if [ -n "$wt" ]; then
   [ "$(common 2>/dev/null)" = "$(common "$wt")" ] && [ "$(git rev-parse --show-toplevel 2>/dev/null)" != "$wt" ] ||
     cd "$(git -C "$wt" worktree list --porcelain | sed -n 's/^worktree //p' | grep -vxF "$wt" | head -1 | grep . || echo "$wt")"
 fi
+if [ -z "$gate" ] && [ -n "$wt" ]; then
+  f=$wt/.fael/worktree.json
+  [ -f "$f" ] || f=$(git -C "$wt" worktree list --porcelain | sed -n '1s/^worktree //p')/.fael/worktree.json
+  [ ! -f "$f" ] || gate=$(jq -r '.gate // empty' "$f") || die 4 "bad JSON in $f"
+fi
+[ "$verb" = cut ] || { [ -n "$gate" ] && [ -n "$wt" ]; } ||
+  die 4 "needs --in <worktree> and --gate <cmd> (or \"gate\" in .fael/worktree.json)"
 
 R=refs/heads/plan/$p
 # the stack ship last pushed: outside refs/remotes, so no fetch --prune drops it
