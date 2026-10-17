@@ -91,11 +91,12 @@ topic: one sentence
 pillar: …
 source: <fael id | PR #N | PRODUCT.md pain>
 hook: first line, as the audience would say it
-points: ≤ 3
+points: ≤ 3, each "<claim> ← <fael id | PR #N | commit>"; no source, no point
 cta: one action
 format: image | video | carousel
 visual: subject · composition · text overlay — palette and mood per VOICE.md
 video: [scene · what's on screen (site section / component) · voiceover · seconds] — video only
+check: copy ≤ N chars · ratio W:H · video ≤ N s (the scenes' seconds sum to it) — numbers from VOICE.md channels
 ```
 
 Posts don't wait on each other: no `--after`. Hand back the 3–5 briefs you are least sure of and
@@ -106,9 +107,10 @@ ask what's wrong with them; fix one with `fael chunk edit <uid> --brief …`.
 The brief's chunk rules hold; for a post, done is a file, not a PR.
 
 The executing agent writes the copy and makes the assets from the brief + `VOICE.md`.
-Done when: one topic · every claim traces to `source` · within the channel limits · VOICE.md
-say/never-say holds. It finishes with `fael chunk done <uid> "<copy + what to check>" --out
-<asset>`: the chunk goes to review, and the owner's `fael chunk accept` is the approval.
+Done when: one topic · every point's claim traces to its source · each `check` measured, not
+eyeballed (`wc -m` on the copy, `ffprobe -v error -show_entries stream=width,height:format=duration
+-of csv=p=0 <asset>`) · VOICE.md say/never-say holds. It finishes with `fael chunk done <uid>
+"<copy + each check's measured value + what to check>" --out <asset>`: the chunk goes to review, and the owner's `fael chunk accept` is the approval.
 
 ## After posting
 
