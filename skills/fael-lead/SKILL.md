@@ -2,6 +2,7 @@
 name: fael-lead
 description: Lead one project's dev work — read every plan's ready chunks in the repo, pick a set of 1-5 that can run together, pin the contracts they share, start each approved chunk as a headless claude -p worker under its own session id, answer what workers ask, land the lanes into a set branch, have a fresh session review and fix it (opus when a lane ran on opus, else sonnet), merge sets into a local stack and push the stack as one PR when the owner says push pr. Merges locally, never on GitHub, never forces a start. Run by /fael-lead [project] only.
 disable-model-invocation: true
+model: sonnet
 ---
 
 # fael-lead — one project, one lead, one PR per stack
@@ -16,7 +17,8 @@ never forward. Local merges are yours; a GitHub PR merge is the owner's (decisio
 
 **Inside the gates you decide.** A commit that changes no behaviour (format, a typo, a test
 name) goes in without asking; a fix not worth it or barely possible is your call; subagents are
-yours to spawn. **Models:** G3 proposes sonnet; opus only for a chunk that touches a migration,
+yours to spawn. **Models:** you run on sonnet (frontmatter; a long lead turns over a big
+context, so its price is the overhead): a call you cannot make from the facts is a Q, not opus. G3 proposes sonnet; opus only for a chunk that touches a migration,
 money, auth or a contract another lane reads (an opus lane costs 6-8x a sonnet one, vela
 2026-10-15); haiku for a mechanical S. Workers take the approved model on the approval's client
 (opencode, else claude: crew-run picks). The reviewer takes the set's strongest lane: opus when
@@ -58,16 +60,13 @@ fael board --json --open | jq --arg r <repo root> '.projects[] | select(.root ==
 
 ## G1 — Facts, read once
 
-```bash
-fael find --key lead:<project>        # the last hand back: next set, open Qs
-fael find --key 'lead:miss:*'         # past misses, by class (--key takes a glob)
-fael board --json --open | jq --arg r <repo root> '.projects[] | select(.root == $r)
-  | .chunks[] | select(.ready) | {uid,label,plan,size,unblocks}'    # ready only; the rest per pick, below
-fael board --json | jq '.running | length'
-```
+`crew-run facts <project>` (`crew-run` next to this file): the last `lead:<project>` hand back,
+the `lead:miss:*` rows, the ready dev chunks by `unblocks`, the running count. One call; never
+re-read them by hand.
 
-Per G2 pick (4-5), not every ready chunk: `scope`, `blocked_by`, `pair`, `overlaps` (live runs and open PRs
-included), and `crew-run scope <project> <uids>`: each path a brief names that its scope lacks. Per past set: the `touched`
+Per G2 pick (4-5), not every ready chunk: `crew-run facts <project> <uids>`: each one's `scope`,
+`blocked_by`, `pair`, `overlaps` (live runs and open PRs included), the rows on its files, then
+`crew-run scope`: each path a brief names that its scope lacks. Per past set: the `touched`
 of its chunks — two that share a path collided, whatever their scopes said. `--open` drops
 stacked chunks: they are the stack's `Fael-Chunk` trailers (`git log origin/main..plan/<project>/stack`),
 their `touched` in `fael chunk show <uid> --json`. From run end to G7.4's done a chunk reads
@@ -94,8 +93,8 @@ goes before work nothing waits on. A chunk is **out** when a check fails and no 
 
 A mechanical fix rides in its row (`scope → x/ (near cap)`), so one `ok` takes it. A Q is only
 for an answer that changes the set or a brief: a breaking contract, an owner's choice. Each pick
-gets one line of why; a pick you cannot justify in one line is out. Before G3, `fael find` each pick's
-one or two key facts: a row that contradicts the brief sends it back to `/fael-plan`, out of this set.
+gets one line of why; a pick you cannot justify in one line is out. Before G3, read each pick's `rows:`
+(facts): a row that contradicts the brief sends it back to `/fael-plan`, out of this set.
 
 `project.shared` paths (docs, registries, goldens) are nobody's: never an overlap, their
 conflicts are yours at G5.
@@ -135,27 +134,28 @@ only if the owner changed them); echo what fael printed. A reply you cannot read
 
 ## G4 — Start
 
-`crew-run` next to this file runs one `claude -p` per call (fael ≥ 0.58.0); all else runs in
-the foreground. A `crew-run` outlives Bash's 10-minute limit and lanes run together: start each
-with `run_in_background`; its exit wakes you, a subagent lead too, with its output. Never poll.
+`crew-run set` runs every lane's `claude -p` at once (fael ≥ 0.58.0); all else runs in
+the foreground. It outlives Bash's 10-minute limit: start it with `run_in_background`; it exits
+once every lane has, so it wakes you (a subagent lead too) once per set. Never poll.
 
 1. `crew-git cut <project> <n>`: the set branch at the stack G0 synced (no stack: `origin/main`).
-2. Per lane, a throwaway worktree on its lane branch: `crew-wt new <repo> plan/<project>/lane/<uid>
-   --from plan/<project>/s<n>` (it prints the path; the repo's setup gives it its own slot,
-   ports and database). Never share `CARGO_TARGET_DIR`. Once the lane lands or goes out (G5),
-   `crew-wt rm <path>`: teardown, then the worktree goes; a resume (exit 1 or 2) keeps it.
-3. Per lane: `crew-run work <project> <n> <uid> --in <worktree> [--contract <id>]…`, one
-   `--contract` per contract the lane builds against that its brief's `contracts:` block does
-   not list; `--model` only if re-modelled. A pair: either uid, the brief carries both.
+2. `crew-run set <project> <n> <uids> [--contract <id>]…` from the repo: per lane a throwaway
+   worktree `crew-plan-<project>-lane-<uid>` beside the main checkout (`crew-wt new`, `crew-wt`
+   next to this file: its own slot, ports and database; never share `CARGO_TARGET_DIR`), then
+   `crew-run work` in each; a `--contract` per contract a lane builds against that its brief's
+   `contracts:` block lacks. A pair: either uid, the brief carries both. Re-modelled since the
+   approval: `fael chunk approve --model` first. Once a lane lands or goes out (G5), `crew-wt rm
+   <path>`; a resume (exit 1 or 2) keeps it: `crew-run set` again with the lanes to resume.
 
 ## G5 — Land
 
-`crew-run work` ends in one line (`lane · R · state · cost · commits`) and its exit:
+`crew-run set` prints `== <uid> · exit <x>` per lane, then its `crew-run work` lines, ending
+`lane · R · state · cost · commits`. Each exit:
 
 - **4 refused** → `fael chunk start` said `blocked` or `held`: back to G2 (principle 2).
 - **1 waited** → answer with `fael chunk answer <uid> "…"` only when the code, the ledger or a
-  contract answers it; else the owner. Then `crew-run work` again: it resumes the lane.
-- **2 crashed** → its commits, `last note` and `uncommitted:` say where; `crew-run work` again, or out.
+  contract answers it; else the owner. Then `crew-run set` again with it: it resumes the lane.
+- **2 crashed** → its commits, `last note` and `uncommitted:` say where; `crew-run set` again, or out.
 - **0 finished** → its `outside, in <plan>/<label>: <path>` and `outside, unowned: <path>` lines
   are the scope check (`project.shared` excluded) — never diff it yourself. Unowned: kept only
   if the lane's gate fails without it, as `fael chunk note <uid> "kept <path>: <why>"` (done

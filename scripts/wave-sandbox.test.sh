@@ -30,6 +30,9 @@ git branch unpushed
 "$CR" scope calc "$(uid sub)" >"$T/out" 2>&1 || { cat "$T/out" >&2; fail "crew-run scope"; }
 has "unscoped sub: calc/add.sh"
 ! grep -q README.md "$T/out" || fail "scope listed the shared README.md"
+"$CR" facts calc "$(uid sub)" >"$T/out" 2>&1 || { cat "$T/out" >&2; fail "crew-run facts"; }
+has "scope: calc/sub.sh"
+has "unscoped sub: calc/add.sh"
 
 # set 1 by hand (add), stacked, then push pr: crew-run ship, its gate from .fael/worktree.json
 git worktree add -q --detach "$D/wt-calc-agent-1" origin/main
