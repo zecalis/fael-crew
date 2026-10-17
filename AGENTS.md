@@ -39,7 +39,7 @@ owner did, and it judges nothing.
   teardown from its `.fael/worktree.json`, a slot N leased in `<git-common-dir>/fael/slots.json`;
   `crew-wt.test.sh` beside it is its check
 - `skills/fael-lead/crew-run`: the lead's processes (a worker per lane on claude or opencode, the set's reviewer):
-  start, beat, run end, a one-line verdict, the brief paths a scope lacks, push pr in one call
+  start, beat, run end, a one-line verdict, a whole set's lanes in one call (set), G1/G2's reads in one (facts), the brief paths a scope lacks, push pr in one call
   (ship: gates, push, the PR, then fael chunk done from the stack's trailers); `crew-run.test.sh` beside it is its check
 - `bin/git-ship`: `git ship` once linked onto PATH, push pr for the current branch of any repo, no lead and
   no plan stack (clean-tree, not-merged, rebase onto origin/main with per-repo conflict rules from

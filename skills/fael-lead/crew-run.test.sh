@@ -23,7 +23,9 @@ mkdir "$T/bin"
 cat >"$T/bin/claude" <<'EOF'
 #!/bin/sh
 # stub: argv and stdin kept; $STUB is what the worker does, $STUB_UID its chunk
-printf '%s\n' "$@" >"$STUB_DIR/argv"; cat >"$STUB_DIR/stdin"
+printf '%s\n' "$@" >"$STUB_DIR/argv"; cat >"$STUB_DIR/stdin.$$"; cp "$STUB_DIR/stdin.$$" "$STUB_DIR/stdin"
+# no $STUB_UID (crew-run set runs lanes at once): the chunk the brief names
+[ -n "$STUB_UID" ] || STUB_UID=$(grep -o 'fael chunk note [A-Z0-9]*' "$STUB_DIR/stdin.$$" | head -1 | cut -d' ' -f4)
 { case $STUB in
 finish) echo "$STUB_UID" >"$STUB_UID"; git add -A; git commit -qm wip
   fael chunk note "$STUB_UID" "finished: $STUB_UID works" ;;
@@ -267,6 +269,36 @@ expect 0 "$CG" ship p --gate true --in "$T/wt-t-agent-2"
 expect 1 "$CR" done p --pr 5 --in "$T/wt-t-agent-2"
 has "not 01M4XXXXXXXXXXXXXXXXXXXXXX" "$T/out"
 [ "$(show "$D" .state)" != done ] || fail "D done under a run it no longer holds"
+
+# set: every lane at once in its own crew-wt worktree, one return; a refused lane is exit 4 and
+# the others still run; a rerun resumes in the same worktree
+STUB_UID= # an earlier STUB_UID=x expect kept its value: each lane names its own chunk
+F1=$(add ff S) F2=$(add fg S)
+for u in $F1 $F2; do fael chunk approve "$u" >/dev/null; done
+expect 4 "$CR" set p 3 "$F1"
+has "cut it first" "$T/out"
+expect 0 "$CG" cut p 3
+STUB=finish expect 0 "$CR" set p 3 "$F1" "$F2"
+has "== $F1 · exit 0" "$T/out"
+has "lane $F2 · R" "$T/out"
+for u in $F1 $F2; do
+  [ "$(git rev-list --count "plan/p/s3..plan/p/lane/$u")" = 1 ] || fail "set: lane $u has no commit"
+  [ -d "$T/crew-plan-p-lane-$u" ] || fail "set: no worktree for $u"
+done
+STUB=finish expect 4 "$CR" set p 3 "$F1" "$C" --contract x
+has "== $C · exit 4" "$T/out"
+has "fael refused the start" "$T/out"
+has "== $F1 · exit 0" "$T/out"
+
+# facts: G1's reads under one call; with picks, each pick's fields and scope's check
+expect 0 "$CR" facts p
+has "== lead:p" "$T/out"
+has "== ready" "$T/out"
+has "== running:" "$T/out"
+expect 0 "$CR" facts p "$A"
+has "== $A fa S" "$T/out"
+has "pair: none" "$T/out"
+has "unscoped: none" "$T/out"
 
 # scope: a path the brief names outside the scope (and project.shared) is listed; a label works
 # (a brief of several lines: its JSON carries \n, which /bin/sh's echo once turned into a jq error)

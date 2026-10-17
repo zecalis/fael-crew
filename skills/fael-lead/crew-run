@@ -12,6 +12,16 @@
 #       contract + the lead's rules into claude -p (or opencode run, for an opencode approval),
 #       fael run beat while it runs, fael run end with its cost (its outside lines) once it
 #       exits, then <wt> detached so the lane can go once it lands
+#   crew-run set    <p> <n> <uid>… [--contract <id>]…
+#       G4.2-3 and G5's wait in one call, so the lead wakes once per set, not once per lane: per
+#       uid its worktree crew-<branch slug> beside the main checkout (crew-wt new from s<n>, or the
+#       one there on a resume), then every lane's work at once, each --contract to every lane;
+#       it returns when all have, each lane's work output under a "== <uid>" line. Run it from
+#       any worktree of the repo. Exit: 0 all finished, else the highest lane exit (4 > 2 > 1)
+#   crew-run facts  <p> [<uid>…]
+#       G1 in one call: the last lead:<p> row, the lead:miss rows, the ready chunks by unblocks,
+#       the running count. With uids (G2's picks): per pick its scope, blocked_by, pair,
+#       overlaps and the rows on its scope's files, then scope's check of them all
 #   crew-run review <p> <n> --in <wt> --lanes <uid,…>
 #       /fael-review high --fix of s<n> against the stack (origin/main for set 1), in <wt>
 #       detached at s<n>; opus when a lane ran on opus, else sonnet; its fixes stay on <wt>'s HEAD,
@@ -56,6 +66,9 @@ case $verb in
   review) [ $# -ge 1 ] || die 4 "review <p> <n> …"; n=$1; shift ;;
   done | ship) ;;
   scope) [ $# -ge 1 ] || die 4 "scope <p> <uid>…"; uids=$*; set -- ;;
+  facts) uids=$*; set -- ;;
+  set) [ $# -ge 2 ] || die 4 "set <p> <n> <uid>…"; n=$1; shift; uids=
+    while [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; do uids="$uids $1"; shift; done ;;
   *) die 4 "unknown verb: $verb" ;;
 esac
 case $n in *[!0-9]*) die 4 "bad set number: $n" ;; esac
@@ -69,7 +82,7 @@ while [ $# -gt 0 ]; do
   esac
   shift 2
 done
-case $verb in done | scope) ;; *) [ -n "$wt" ] || die 4 "needs --in <worktree>" ;; esac
+case $verb in done | scope | facts | set) ;; *) [ -n "$wt" ] || die 4 "needs --in <worktree>" ;; esac
 [ "$verb" != review ] || [ -n "$lanes" ] || die 4 "review needs --lanes <uid,…>"
 [ "$verb" != done ] || case $pr in '' | *[!0-9]*) die 4 "done needs --pr <N>" ;; esac
 [ "$verb" != ship ] || { [ -n "$title" ] && [ -f "$body" ]; } || die 4 "ship needs -m <title> --body <file>"
@@ -234,6 +247,60 @@ review)
   failed "$rc" "$out" && { echo "claude exit $rc · log: $out"; exit 2; }
   d=$(git status --porcelain | wc -l | tr -d ' ')
   [ "$d" = 0 ] || { echo "uncommitted: $d files the reviewer left in $wt"; exit 2; }
+  ;;
+set)
+  main=$(git worktree list --porcelain | sed -n '1s/^worktree //p') || die 4 "run set from a worktree of the repo"
+  git rev-parse -q --verify "refs/heads/plan/$p/s$n" >/dev/null || die 4 "no plan/$p/s$n: cut it first (crew-git cut)"
+  cs=; for c in $contracts; do cs="$cs --contract $c"; done
+  pids=
+  for u in $uids; do
+    case $u in *[!A-Za-z0-9]*) die 4 "bad uid: $u" ;; esac
+    b=plan/$p/lane/$u
+    w=$(dirname "$main")/crew-$(printf %s "$b" | tr -c 'A-Za-z0-9._-' -)
+    [ -d "$w" ] || "$(dirname "$0")/crew-wt" new "$main" "$b" --at "$w" --from "plan/$p/s$n" >"$logs/set-$u.out" 2>&1 ||
+      { echo 4 >"$logs/set-$u.rc"; continue; }
+    # shellcheck disable=SC2086 # cs is --contract <id> pairs
+    (r=0; "$0" work "$p" "$n" "$u" --in "$w" $cs >"$logs/set-$u.out" 2>&1 || r=$?; echo $r >"$logs/set-$u.rc") &
+    pids="$pids $!"
+  done
+  # shellcheck disable=SC2086
+  [ -z "$pids" ] || wait $pids || :
+  x=0
+  for u in $uids; do
+    r=$(cat "$logs/set-$u.rc" 2>/dev/null || echo 4); rm -f "$logs/set-$u.rc"
+    echo "== $u · exit $r"; cat "$logs/set-$u.out"
+    case $r:$x in 4:* | 2:[01] | 1:0) x=$r ;; 0:* | 1:* | 2:*) ;; *) x=4 ;; esac
+  done
+  exit $x
+  ;;
+facts)
+  root=$(git worktree list --porcelain | sed -n '1s/^worktree //p') || die 4 "run facts from a worktree of the repo"
+  b=$(fael board --json --open)
+  if [ -z "$uids" ]; then
+    echo "== lead:$p"; fael find --key "lead:$p" || :
+    echo "== lead:miss"; fael find --key 'lead:miss:*' || :
+    echo "== ready (dev plans, by unblocks): uid label plan size unblocks"
+    printf '%s\n' "$b" | jq -r --arg r "$root" '.projects[] | select(.root == $r)
+      | [.plans[] | select(.area == "dev") | .name] as $dev
+      | [.chunks[] | select(.ready and (.plan | IN($dev[])))] | sort_by(-.unblocks)[]
+      | "\(.uid) \(.label // "-") \(.plan) \(.size) \(.unblocks)"'
+    echo "== running: $(fael board --json | jq '.running | length') (6+: the machine is full)"
+    exit 0
+  fi
+  for u in $uids; do
+    case $u in *[!A-Za-z0-9._-]*) die 4 "bad uid: $u" ;; esac
+    j=$(fael chunk show "$u" --json) || die 4 "no chunk $u"
+    printf '%s\n' "$j" | jq -r '"== \(.uid) \(.label // "-") \(.size)
+scope: \(.scope | join(" ") | if . == "" then "— no scope" else . end)
+blocked_by: \([.blocked_by[]? | .uid] | join(" ") | if . == "" then "none" else . end) · pair: \(.pair | join(" ") | if . == "" then "none" else . end)
+overlaps: \(.overlaps // [] | if length == 0 then "none" else tojson end)"'
+    f=$(printf '%s\n' "$j" | jq -r '.scope | join(",")')
+    # the rows on its files, for G2's check against the brief; none says nothing
+    r=$([ -z "$f" ] || fael find --files "$f" --limit 3 2>/dev/null) || r=
+    case $r in '' | "fael: no rows"*) ;; *) printf 'rows:\n%s\n' "$r" ;; esac
+  done
+  # shellcheck disable=SC2086
+  exec "$0" scope "$p" $uids
   ;;
 scope)
   # a path the brief names is one fael's overlaps never see unless the scope lists it
