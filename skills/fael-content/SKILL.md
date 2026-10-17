@@ -108,9 +108,11 @@ The brief's chunk rules hold; for a post, done is a file, not a PR.
 
 The executing agent writes the copy and makes the assets from the brief + `VOICE.md`.
 Done when: one topic · every point's claim traces to its source · each `check` measured, not
-eyeballed (`wc -m` on the copy, `ffprobe -v error -show_entries stream=width,height:format=duration
--of csv=p=0 <asset>`) · VOICE.md say/never-say holds. It finishes with `fael chunk done <uid>
-"<copy + each check's measured value + what to check>" --out <asset>`: the chunk goes to review, and the owner's `fael chunk accept` is the approval.
+eyeballed (`wc -m` on the copy; an image: `sips -g pixelWidth -g pixelHeight <asset>`; a video:
+`ffprobe -v error -show_entries stream=width,height:format=duration -of csv=p=0 <asset>`, no
+ffprobe = say so, don't guess) · VOICE.md say/never-say holds. It
+finishes with `fael chunk done <uid> "<copy + each check's measured value + what to check>" --out
+<asset>`: the chunk goes to review, and the owner's `fael chunk accept` is the approval.
 
 ## After posting
 
