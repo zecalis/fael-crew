@@ -192,6 +192,6 @@ for t in $(git log --reverse --format='%(trailers:key=Fael-Chunk,valueonly,separ
     j=$(fael chunk show "$c" --json)
     [ "$(printf '%s\n' "$j" | jq -r .state)" != done ] || continue
     h=$(printf '%s\n' "$j" | jq -r "$fin")
-    fael chunk done "$c" "${h:-${lane:-landed in PR $n}}" --pr "$n" ${r:+--run "$r"} >/dev/null
+    fael chunk done "$c" "${h:-${lane:-landed in PR $n}}" --pr "$n" ${r:+--run "$r"}
   done
 done

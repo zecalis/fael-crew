@@ -130,14 +130,15 @@ git switch -q -c feat/two origin/main
 git restore --source=feat/one --worktree --staged .fael
 seq 60 >big; git add big .fael; git commit -qm "chore: big and gates"; git push -q origin HEAD:main; git fetch -q origin
 git switch -q -c feat/three origin/main
+fael chunk start "$U" >/dev/null 2>&1 || :
 git rm -q big; git commit -qm "feat(three): drop big
 
 Why: it was unused.
 
 Fael-Chunk: $U"
-fael chunk start "$U" >/dev/null 2>&1 || :
 expect 0 "$GS"
 has "PR 2 " "$T/out"
+has "big" "$T/out" # chunk done's out-of-scope warning reaches the person
 has "feat(three): drop big" "$T/prs.2.title"
 has "- deleted: big" "$T/prs.2.md"
 has "Why: it was unused." "$T/prs.2.md"
